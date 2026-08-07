@@ -1,6 +1,33 @@
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
 import { User, Home, Briefcase } from 'lucide-react';
+import { loanDetailsSchema, LoanDetailsFormData, zodResolver } from '../schemas/loanDetailsSchema';
 
-export const LoanDetails = () => {
+interface LoanDetailsProps {
+  onValidityChange?: (isValid: boolean) => void;
+}
+
+export const LoanDetails = ({ onValidityChange }: LoanDetailsProps) => {
+  const {
+    register,
+    setValue,
+    watch,
+    formState: { errors, touchedFields, isValid },
+  } = useForm<LoanDetailsFormData>({
+    resolver: zodResolver(loanDetailsSchema),
+    mode: 'onChange',
+  });
+
+  const selectedLoanType = watch('loanType');
+
+  useEffect(() => {
+    onValidityChange?.(isValid);
+  }, [isValid, onValidityChange]);
+
+  const handleSelectLoanType = (type: string) => {
+    setValue('loanType', type, { shouldValidate: true, shouldTouch: true });
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -21,9 +48,22 @@ export const LoanDetails = () => {
               Loan Type
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Personal Loan (Demonstration Selected State) */}
-              <div className="border-2 border-blue-600 bg-blue-50/40 rounded-xl p-4 cursor-pointer hover:border-blue-600 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
+              {/* Personal Loan */}
+              <div
+                onClick={() => handleSelectLoanType('Personal Loan')}
+                className={`border-2 rounded-xl p-4 cursor-pointer transition-colors ${
+                  selectedLoanType === 'Personal Loan'
+                    ? 'border-blue-600 bg-blue-50/40'
+                    : 'border-gray-200 hover:border-blue-400'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+                    selectedLoanType === 'Personal Loan'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
                   <User className="w-5 h-5" />
                 </div>
                 <h3 className="font-semibold text-gray-900 text-base">Personal Loan</h3>
@@ -31,8 +71,21 @@ export const LoanDetails = () => {
               </div>
 
               {/* Home Loan */}
-              <div className="border border-gray-200 rounded-xl p-4 cursor-pointer hover:border-blue-400 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center mb-3">
+              <div
+                onClick={() => handleSelectLoanType('Home Loan')}
+                className={`border-2 rounded-xl p-4 cursor-pointer transition-colors ${
+                  selectedLoanType === 'Home Loan'
+                    ? 'border-blue-600 bg-blue-50/40'
+                    : 'border-gray-200 hover:border-blue-400'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+                    selectedLoanType === 'Home Loan'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
                   <Home className="w-5 h-5" />
                 </div>
                 <h3 className="font-semibold text-gray-900 text-base">Home Loan</h3>
@@ -42,8 +95,21 @@ export const LoanDetails = () => {
               </div>
 
               {/* Business Loan */}
-              <div className="border border-gray-200 rounded-xl p-4 cursor-pointer hover:border-blue-400 transition-colors">
-                <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center mb-3">
+              <div
+                onClick={() => handleSelectLoanType('Business Loan')}
+                className={`border-2 rounded-xl p-4 cursor-pointer transition-colors ${
+                  selectedLoanType === 'Business Loan'
+                    ? 'border-blue-600 bg-blue-50/40'
+                    : 'border-gray-200 hover:border-blue-400'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 ${
+                    selectedLoanType === 'Business Loan'
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}
+                >
                   <Briefcase className="w-5 h-5" />
                 </div>
                 <h3 className="font-semibold text-gray-900 text-base">Business Loan</h3>
@@ -52,6 +118,9 @@ export const LoanDetails = () => {
                 </p>
               </div>
             </div>
+            {touchedFields.loanType && errors.loanType && (
+              <p className="text-xs text-red-500 mt-1">{errors.loanType.message}</p>
+            )}
           </div>
 
           {/* Section 2: Loan Amount */}
@@ -65,12 +134,16 @@ export const LoanDetails = () => {
               </div>
               <input
                 type="number"
+                min="1"
                 id="loanAmount"
-                name="loanAmount"
                 className="block w-full pl-8 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                 placeholder="Enter required loan amount"
+                {...register('loanAmount')}
               />
             </div>
+            {touchedFields.loanAmount && errors.loanAmount && (
+              <p className="text-xs text-red-500 mt-1">{errors.loanAmount.message}</p>
+            )}
           </div>
 
           {/* Section 3: Loan Purpose */}
@@ -80,9 +153,9 @@ export const LoanDetails = () => {
             </label>
             <select
               id="loanPurpose"
-              name="loanPurpose"
               className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               defaultValue=""
+              {...register('loanPurpose')}
             >
               <option value="" disabled>
                 Select loan purpose
@@ -94,6 +167,9 @@ export const LoanDetails = () => {
               <option value="Vehicle Purchase">Vehicle Purchase</option>
               <option value="Other">Other</option>
             </select>
+            {touchedFields.loanPurpose && errors.loanPurpose && (
+              <p className="text-xs text-red-500 mt-1">{errors.loanPurpose.message}</p>
+            )}
           </div>
 
           {/* Section 4: Loan Tenure */}
@@ -103,9 +179,9 @@ export const LoanDetails = () => {
             </label>
             <select
               id="loanTenure"
-              name="loanTenure"
               className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               defaultValue=""
+              {...register('loanTenure')}
             >
               <option value="" disabled>
                 Select tenure
@@ -120,6 +196,9 @@ export const LoanDetails = () => {
               <option value="240">240 Months</option>
               <option value="360">360 Months</option>
             </select>
+            {touchedFields.loanTenure && errors.loanTenure && (
+              <p className="text-xs text-red-500 mt-1">{errors.loanTenure.message}</p>
+            )}
           </div>
         </div>
 
