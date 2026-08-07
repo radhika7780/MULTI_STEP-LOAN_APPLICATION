@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLoanStore } from '../../store/loanStore';
 import { ProgressBar } from './ProgressBar';
@@ -26,6 +27,8 @@ const STEPS = [
 
 export const Wizard = () => {
   const currentStep = useLoanStore((state) => state.currentStep);
+  const [isCurrentStepValid, setIsCurrentStepValid] = useState<boolean>(false);
+
   const CurrentStepComponent = STEPS[currentStep - 1];
 
   return (
@@ -41,11 +44,15 @@ export const Wizard = () => {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.25 }}
           >
-            {CurrentStepComponent && <CurrentStepComponent />}
+            {currentStep === 1 ? (
+              <LoanDetails onValidityChange={setIsCurrentStepValid} />
+            ) : (
+              CurrentStepComponent && <CurrentStepComponent />
+            )}
           </motion.div>
         </AnimatePresence>
       </div>
-      <NavigationButtons canProceed={true} />
+      <NavigationButtons canProceed={currentStep === 1 ? isCurrentStepValid : true} />
     </div>
   );
 };

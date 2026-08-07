@@ -2,12 +2,16 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { User, Home, Briefcase } from 'lucide-react';
 import { loanDetailsSchema, LoanDetailsFormData, zodResolver } from '../schemas/loanDetailsSchema';
+import { useLoanStore } from '../store/loanStore';
 
 interface LoanDetailsProps {
   onValidityChange?: (isValid: boolean) => void;
 }
 
 export const LoanDetails = ({ onValidityChange }: LoanDetailsProps) => {
+  const loanDetails = useLoanStore((state) => state.loanDetails);
+  const setLoanDetails = useLoanStore((state) => state.setLoanDetails);
+
   const {
     register,
     setValue,
@@ -16,10 +20,33 @@ export const LoanDetails = ({ onValidityChange }: LoanDetailsProps) => {
   } = useForm<LoanDetailsFormData>({
     resolver: zodResolver(loanDetailsSchema),
     mode: 'onChange',
+    defaultValues: {
+      loanType: loanDetails.loanType || '',
+      loanAmount: loanDetails.loanAmount ?? undefined,
+      loanPurpose: loanDetails.loanPurpose || '',
+      loanTenure: loanDetails.loanTenure || '',
+    },
   });
 
   const selectedLoanType = watch('loanType');
+  const watchedLoanAmount = watch('loanAmount');
+  const watchedLoanPurpose = watch('loanPurpose');
+  const watchedLoanTenure = watch('loanTenure');
 
+  // Watch subscription to sync Zustand store efficiently only when form values change
+  useEffect(() => {
+    const subscription = watch((value) => {
+      setLoanDetails({
+        loanType: value.loanType || '',
+        loanAmount: value.loanAmount ? Number(value.loanAmount) : null,
+        loanPurpose: value.loanPurpose || '',
+        loanTenure: value.loanTenure || '',
+      });
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, setLoanDetails]);
+
+  // Form validity callback
   useEffect(() => {
     onValidityChange?.(isValid);
   }, [isValid, onValidityChange]);
@@ -202,7 +229,7 @@ export const LoanDetails = ({ onValidityChange }: LoanDetailsProps) => {
           </div>
         </div>
 
-        {/* Right Column: Loan Summary Card */}
+        {/* Right Column: Dynamic Loan Summary Card */}
         <div className="lg:col-span-1">
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 space-y-4">
             <h3 className="text-base font-semibold text-gray-900 pb-2 border-b border-gray-200">
@@ -212,19 +239,27 @@ export const LoanDetails = ({ onValidityChange }: LoanDetailsProps) => {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">Loan Type</span>
-                <span className="font-medium text-gray-900">—</span>
+                <span className="font-medium text-gray-900">
+                  {selectedLoanType || '—'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">Loan Amount</span>
-                <span className="font-medium text-gray-900">—</span>
+                <span className="font-medium text-gray-900">
+                  {watchedLoanAmount ? `₹${Number(watchedLoanAmount).toLocaleString('en-IN')}` : '—'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">Purpose</span>
-                <span className="font-medium text-gray-900">—</span>
+                <span className="font-medium text-gray-900">
+                  {watchedLoanPurpose || '—'}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">Tenure</span>
-                <span className="font-medium text-gray-900">—</span>
+                <span className="font-medium text-gray-900">
+                  {watchedLoanTenure ? `${watchedLoanTenure} Months` : '—'}
+                </span>
               </div>
             </div>
 
