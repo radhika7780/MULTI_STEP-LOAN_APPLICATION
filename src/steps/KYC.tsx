@@ -1,6 +1,26 @@
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { ShieldCheck, CreditCard, FileText } from 'lucide-react';
+import { kycSchema, KYCFormData } from '../schemas/kycSchema';
 
-export const KYC = () => {
+interface KYCProps {
+  onValidityChange?: (isValid: boolean) => void;
+}
+
+export const KYC = ({ onValidityChange }: KYCProps) => {
+  const {
+    register,
+    formState: { errors, touchedFields, isValid },
+  } = useForm<KYCFormData>({
+    resolver: zodResolver(kycSchema),
+    mode: 'onChange',
+  });
+
+  useEffect(() => {
+    onValidityChange?.(isValid);
+  }, [isValid, onValidityChange]);
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -42,8 +62,20 @@ export const KYC = () => {
               placeholder="Enter PAN number"
               maxLength={10}
               className="block w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 uppercase focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono tracking-wider"
+              aria-invalid={touchedFields.panNumber && !!errors.panNumber}
+              aria-describedby={errors.panNumber ? 'panNumber-error' : undefined}
+              {...register('panNumber', {
+                onChange: (e) => {
+                  e.target.value = e.target.value.toUpperCase();
+                },
+              })}
             />
           </div>
+          {touchedFields.panNumber && errors.panNumber && (
+            <p id="panNumber-error" role="alert" className="text-xs text-red-500 mt-1">
+              {errors.panNumber.message}
+            </p>
+          )}
         </div>
 
         {/* Section 2: Aadhaar */}
@@ -73,8 +105,20 @@ export const KYC = () => {
               placeholder="Enter 12-digit Aadhaar number"
               maxLength={12}
               className="block w-full pl-9 pr-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono tracking-wider"
+              aria-invalid={touchedFields.aadhaarNumber && !!errors.aadhaarNumber}
+              aria-describedby={errors.aadhaarNumber ? 'aadhaarNumber-error' : undefined}
+              {...register('aadhaarNumber', {
+                onChange: (e) => {
+                  e.target.value = e.target.value.replace(/\D/g, '');
+                },
+              })}
             />
           </div>
+          {touchedFields.aadhaarNumber && errors.aadhaarNumber && (
+            <p id="aadhaarNumber-error" role="alert" className="text-xs text-red-500 mt-1">
+              {errors.aadhaarNumber.message}
+            </p>
+          )}
         </div>
       </div>
     </div>
