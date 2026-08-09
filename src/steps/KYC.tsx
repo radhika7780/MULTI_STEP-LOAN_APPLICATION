@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ShieldCheck, CreditCard, FileText, CheckCircle2, Loader2 } from 'lucide-react';
 import { kycSchema, KYCFormData } from '../schemas/kycSchema';
+import { useLoanStore } from '../store/loanStore';
 
 interface KYCProps {
   onValidityChange?: (isValid: boolean) => void;
@@ -11,8 +12,15 @@ interface KYCProps {
 type VerificationState = 'idle' | 'verifying' | 'verified';
 
 export const KYC = ({ onValidityChange }: KYCProps) => {
-  const [panState, setPanState] = useState<VerificationState>('idle');
-  const [aadhaarState, setAadhaarState] = useState<VerificationState>('idle');
+  const kycDetails = useLoanStore((state) => state.kycDetails);
+  const setKYCDetails = useLoanStore((state) => state.setKYCDetails);
+
+  const [panState, setPanState] = useState<VerificationState>(
+    kycDetails.panVerified ? 'verified' : 'idle'
+  );
+  const [aadhaarState, setAadhaarState] = useState<VerificationState>(
+    kycDetails.aadhaarVerified ? 'verified' : 'idle'
+  );
 
   const {
     register,
@@ -22,24 +30,52 @@ export const KYC = ({ onValidityChange }: KYCProps) => {
   } = useForm<KYCFormData>({
     resolver: zodResolver(kycSchema),
     mode: 'onChange',
+    defaultValues: {
+      panNumber: kycDetails.panNumber || '',
+      aadhaarNumber: kycDetails.aadhaarNumber || '',
+    },
   });
 
   const watchedPan = watch('panNumber');
   const watchedAadhaar = watch('aadhaarNumber');
 
-  // Reset verification states if inputs change
+  // Watch subscription to sync form input values to Zustand
   useEffect(() => {
-    setPanState('idle');
-  }, [watchedPan]);
+    const subscription = watch((value) => {
+      setKYCDetails({
+        panNumber: value.panNumber || '',
+        aadhaarNumber: value.aadhaarNumber || '',
+      });
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, setKYCDetails]);
+
+  // Reset PAN verification state if input value changes
+  const initialPanRef = useRef(kycDetails.panNumber);
+  useEffect(() => {
+    if (watchedPan !== undefined && watchedPan !== initialPanRef.current) {
+      setPanState('idle');
+      setKYCDetails({ panVerified: false });
+      initialPanRef.current = watchedPan;
+    }
+  }, [watchedPan, setKYCDetails]);
+
+  // Reset Aadhaar verification state if input value changes
+  const initialAadhaarRef = useRef(kycDetails.aadhaarNumber);
+  useEffect(() => {
+    if (watchedAadhaar !== undefined && watchedAadhaar !== initialAadhaarRef.current) {
+      setAadhaarState('idle');
+      setKYCDetails({ aadhaarVerified: false });
+      initialAadhaarRef.current = watchedAadhaar;
+    }
+  }, [watchedAadhaar, setKYCDetails]);
+
+  // Compute complete KYC readiness (Form valid AND PAN verified AND Aadhaar verified)
+  const isKYCComplete = isValid && panState === 'verified' && aadhaarState === 'verified';
 
   useEffect(() => {
-    setAadhaarState('idle');
-  }, [watchedAadhaar]);
-
-  // Form validity callback
-  useEffect(() => {
-    onValidityChange?.(isValid);
-  }, [isValid, onValidityChange]);
+    onValidityChange?.(isKYCComplete);
+  }, [isKYCComplete, onValidityChange]);
 
   const isPanValid =
     !errors.panNumber &&
@@ -58,6 +94,7 @@ export const KYC = ({ onValidityChange }: KYCProps) => {
     setPanState('verifying');
     setTimeout(() => {
       setPanState('verified');
+      setKYCDetails({ panVerified: true });
     }, 1500);
   };
 
@@ -67,6 +104,7 @@ export const KYC = ({ onValidityChange }: KYCProps) => {
     setAadhaarState('verifying');
     setTimeout(() => {
       setAadhaarState('verified');
+      setKYCDetails({ aadhaarVerified: true });
     }, 1500);
   };
 

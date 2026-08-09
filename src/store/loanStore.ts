@@ -17,11 +17,19 @@ export interface PersonalDetailsData {
   maritalStatus: string;
 }
 
+export interface KYCDetailsData {
+  panNumber: string;
+  aadhaarNumber: string;
+  panVerified: boolean;
+  aadhaarVerified: boolean;
+}
+
 interface LoanStoreState {
   currentStep: number;
   totalSteps: number;
   loanDetails: LoanDetailsData;
   personalDetails: PersonalDetailsData;
+  kycDetails: KYCDetailsData;
   nextStep: () => void;
   previousStep: () => void;
   goToStep: (step: number) => void;
@@ -30,6 +38,8 @@ interface LoanStoreState {
   clearLoanDetails: () => void;
   setPersonalDetails: (data: Partial<PersonalDetailsData>) => void;
   clearPersonalDetails: () => void;
+  setKYCDetails: (data: Partial<KYCDetailsData>) => void;
+  clearKYCDetails: () => void;
 }
 
 export const useLoanStore = create<LoanStoreState>((set) => ({
@@ -49,6 +59,12 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
     mobileNumber: '',
     email: '',
     maritalStatus: '',
+  },
+  kycDetails: {
+    panNumber: '',
+    aadhaarNumber: '',
+    panVerified: false,
+    aadhaarVerified: false,
   },
   nextStep: () =>
     set((state) => ({
@@ -93,6 +109,19 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
         mobileNumber: '',
         email: '',
         maritalStatus: '',
+      },
+    }),
+  setKYCDetails: (data: Partial<KYCDetailsData>) =>
+    set((state) => ({
+      kycDetails: { ...state.kycDetails, ...data },
+    })),
+  clearKYCDetails: () =>
+    set({
+      kycDetails: {
+        panNumber: '',
+        aadhaarNumber: '',
+        panVerified: false,
+        aadhaarVerified: false,
       },
     }),
 }));
