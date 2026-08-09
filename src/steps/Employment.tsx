@@ -3,12 +3,16 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Briefcase, Building2, UserCheck } from 'lucide-react';
 import { employmentSchema, EmploymentFormData } from '../schemas/employmentSchema';
+import { useLoanStore } from '../store/loanStore';
 
 interface EmploymentProps {
   onValidityChange?: (isValid: boolean) => void;
 }
 
 export const Employment = ({ onValidityChange }: EmploymentProps) => {
+  const employmentDetails = useLoanStore((state) => state.employmentDetails);
+  const setEmploymentDetails = useLoanStore((state) => state.setEmploymentDetails);
+
   const {
     register,
     setValue,
@@ -19,16 +23,34 @@ export const Employment = ({ onValidityChange }: EmploymentProps) => {
     resolver: zodResolver(employmentSchema),
     mode: 'onChange',
     defaultValues: {
-      employmentType: undefined,
-      employerOrBusinessName: '',
-      jobTitle: '',
-      businessType: '',
-      income: undefined,
-      workExperience: '',
+      employmentType: (employmentDetails.employmentType as 'Salaried' | 'Self-Employed') || undefined,
+      employerOrBusinessName: employmentDetails.employerOrBusinessName || '',
+      jobTitle: employmentDetails.jobTitle || '',
+      businessType: employmentDetails.businessType || '',
+      income: employmentDetails.income ?? undefined,
+      workExperience: employmentDetails.workExperience || '',
     },
   });
 
   const selectedEmploymentType = watch('employmentType');
+
+  // Sync form values to Zustand store
+  useEffect(() => {
+    const subscription = watch((value) => {
+      setEmploymentDetails({
+        employmentType: value.employmentType || '',
+        employerOrBusinessName: value.employerOrBusinessName || '',
+        jobTitle: value.jobTitle || '',
+        businessType: value.businessType || '',
+        income:
+          value.income !== undefined && value.income !== null && value.income !== ''
+            ? Number(value.income)
+            : null,
+        workExperience: value.workExperience || '',
+      });
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, setEmploymentDetails]);
 
   // Form validity callback
   useEffect(() => {

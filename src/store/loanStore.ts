@@ -24,12 +24,22 @@ export interface KYCDetailsData {
   aadhaarVerified: boolean;
 }
 
+export interface EmploymentDetailsData {
+  employmentType: string;
+  employerOrBusinessName: string;
+  jobTitle: string;
+  businessType: string;
+  income: number | null;
+  workExperience: string;
+}
+
 interface LoanStoreState {
   currentStep: number;
   totalSteps: number;
   loanDetails: LoanDetailsData;
   personalDetails: PersonalDetailsData;
   kycDetails: KYCDetailsData;
+  employmentDetails: EmploymentDetailsData;
   nextStep: () => void;
   previousStep: () => void;
   goToStep: (step: number) => void;
@@ -40,6 +50,8 @@ interface LoanStoreState {
   clearPersonalDetails: () => void;
   setKYCDetails: (data: Partial<KYCDetailsData>) => void;
   clearKYCDetails: () => void;
+  setEmploymentDetails: (data: Partial<EmploymentDetailsData>) => void;
+  clearEmploymentDetails: () => void;
 }
 
 export const useLoanStore = create<LoanStoreState>((set) => ({
@@ -65,6 +77,14 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
     aadhaarNumber: '',
     panVerified: false,
     aadhaarVerified: false,
+  },
+  employmentDetails: {
+    employmentType: '',
+    employerOrBusinessName: '',
+    jobTitle: '',
+    businessType: '',
+    income: null,
+    workExperience: '',
   },
   nextStep: () =>
     set((state) => ({
@@ -122,6 +142,21 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
         aadhaarNumber: '',
         panVerified: false,
         aadhaarVerified: false,
+      },
+    }),
+  setEmploymentDetails: (data: Partial<EmploymentDetailsData>) =>
+    set((state) => ({
+      employmentDetails: { ...state.employmentDetails, ...data },
+    })),
+  clearEmploymentDetails: () =>
+    set({
+      employmentDetails: {
+        employmentType: '',
+        employerOrBusinessName: '',
+        jobTitle: '',
+        businessType: '',
+        income: null,
+        workExperience: '',
       },
     }),
 }));
