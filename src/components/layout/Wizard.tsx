@@ -46,13 +46,15 @@ export const Wizard = () => {
           >
             {currentStep === 1 ? (
               <LoanDetails onValidityChange={setIsCurrentStepValid} />
+            ) : currentStep === 2 ? (
+              <PersonalDetails onValidityChange={setIsCurrentStepValid} />
             ) : (
               CurrentStepComponent && <CurrentStepComponent />
             )}
           </motion.div>
         </AnimatePresence>
       </div>
-      <NavigationButtons canProceed={currentStep === 1 ? isCurrentStepValid : true} />
+      <NavigationButtons canProceed={currentStep === 1 || currentStep === 2 ? isCurrentStepValid : true} />
     </div>
   );
 };
