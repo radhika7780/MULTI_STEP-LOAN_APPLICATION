@@ -33,6 +33,24 @@ export interface EmploymentDetailsData {
   workExperience: string;
 }
 
+export interface AddressDetailsData {
+  currentAddressLine1: string;
+  currentAddressLine2: string;
+  currentPinCode: string;
+  currentState: string;
+  currentCity: string;
+  currentPostOffice: string;
+
+  permanentAddressLine1: string;
+  permanentAddressLine2: string;
+  permanentPinCode: string;
+  permanentState: string;
+  permanentCity: string;
+  permanentPostOffice: string;
+
+  sameAsCurrentAddress: boolean;
+}
+
 interface LoanStoreState {
   currentStep: number;
   totalSteps: number;
@@ -40,6 +58,7 @@ interface LoanStoreState {
   personalDetails: PersonalDetailsData;
   kycDetails: KYCDetailsData;
   employmentDetails: EmploymentDetailsData;
+  addressDetails: AddressDetailsData;
   nextStep: () => void;
   previousStep: () => void;
   goToStep: (step: number) => void;
@@ -52,6 +71,8 @@ interface LoanStoreState {
   clearKYCDetails: () => void;
   setEmploymentDetails: (data: Partial<EmploymentDetailsData>) => void;
   clearEmploymentDetails: () => void;
+  setAddressDetails: (data: Partial<AddressDetailsData>) => void;
+  clearAddressDetails: () => void;
 }
 
 export const useLoanStore = create<LoanStoreState>((set) => ({
@@ -85,6 +106,21 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
     businessType: '',
     income: null,
     workExperience: '',
+  },
+  addressDetails: {
+    currentAddressLine1: '',
+    currentAddressLine2: '',
+    currentPinCode: '',
+    currentState: '',
+    currentCity: '',
+    currentPostOffice: '',
+    permanentAddressLine1: '',
+    permanentAddressLine2: '',
+    permanentPinCode: '',
+    permanentState: '',
+    permanentCity: '',
+    permanentPostOffice: '',
+    sameAsCurrentAddress: false,
   },
   nextStep: () =>
     set((state) => ({
@@ -157,6 +193,28 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
         businessType: '',
         income: null,
         workExperience: '',
+      },
+    }),
+  setAddressDetails: (data: Partial<AddressDetailsData>) =>
+    set((state) => ({
+      addressDetails: { ...state.addressDetails, ...data },
+    })),
+  clearAddressDetails: () =>
+    set({
+      addressDetails: {
+        currentAddressLine1: '',
+        currentAddressLine2: '',
+        currentPinCode: '',
+        currentState: '',
+        currentCity: '',
+        currentPostOffice: '',
+        permanentAddressLine1: '',
+        permanentAddressLine2: '',
+        permanentPinCode: '',
+        permanentState: '',
+        permanentCity: '',
+        permanentPostOffice: '',
+        sameAsCurrentAddress: false,
       },
     }),
 }));

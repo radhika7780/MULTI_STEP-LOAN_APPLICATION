@@ -3,12 +3,16 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MapPin, Home, Building } from 'lucide-react';
 import { addressSchema, AddressFormData } from '../schemas/addressSchema';
+import { useLoanStore } from '../store/loanStore';
 
 interface AddressProps {
   onValidityChange?: (isValid: boolean) => void;
 }
 
 export const Address = ({ onValidityChange }: AddressProps) => {
+  const addressDetails = useLoanStore((state) => state.addressDetails);
+  const setAddressDetails = useLoanStore((state) => state.setAddressDetails);
+
   const {
     register,
     setValue,
@@ -18,19 +22,19 @@ export const Address = ({ onValidityChange }: AddressProps) => {
     resolver: zodResolver(addressSchema),
     mode: 'onChange',
     defaultValues: {
-      currentAddressLine1: '',
-      currentAddressLine2: '',
-      currentPinCode: '',
-      currentState: '',
-      currentCity: '',
-      currentPostOffice: '',
-      permanentAddressLine1: '',
-      permanentAddressLine2: '',
-      permanentPinCode: '',
-      permanentState: '',
-      permanentCity: '',
-      permanentPostOffice: '',
-      sameAsCurrentAddress: false,
+      currentAddressLine1: addressDetails.currentAddressLine1 || '',
+      currentAddressLine2: addressDetails.currentAddressLine2 || '',
+      currentPinCode: addressDetails.currentPinCode || '',
+      currentState: addressDetails.currentState || '',
+      currentCity: addressDetails.currentCity || '',
+      currentPostOffice: addressDetails.currentPostOffice || '',
+      permanentAddressLine1: addressDetails.permanentAddressLine1 || '',
+      permanentAddressLine2: addressDetails.permanentAddressLine2 || '',
+      permanentPinCode: addressDetails.permanentPinCode || '',
+      permanentState: addressDetails.permanentState || '',
+      permanentCity: addressDetails.permanentCity || '',
+      permanentPostOffice: addressDetails.permanentPostOffice || '',
+      sameAsCurrentAddress: addressDetails.sameAsCurrentAddress || false,
     },
   });
 
@@ -45,6 +49,28 @@ export const Address = ({ onValidityChange }: AddressProps) => {
   const permanentState = watch('permanentState');
   const permanentCity = watch('permanentCity');
   const permanentPostOffice = watch('permanentPostOffice');
+
+  // Sync form values to Zustand store
+  useEffect(() => {
+    const subscription = watch((values) => {
+      setAddressDetails({
+        currentAddressLine1: values.currentAddressLine1 || '',
+        currentAddressLine2: values.currentAddressLine2 || '',
+        currentPinCode: values.currentPinCode || '',
+        currentState: values.currentState || '',
+        currentCity: values.currentCity || '',
+        currentPostOffice: values.currentPostOffice || '',
+        permanentAddressLine1: values.permanentAddressLine1 || '',
+        permanentAddressLine2: values.permanentAddressLine2 || '',
+        permanentPinCode: values.permanentPinCode || '',
+        permanentState: values.permanentState || '',
+        permanentCity: values.permanentCity || '',
+        permanentPostOffice: values.permanentPostOffice || '',
+        sameAsCurrentAddress: values.sameAsCurrentAddress || false,
+      });
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, setAddressDetails]);
 
   // Select dropdown options state
   const [currentStateOptions, setCurrentStateOptions] = useState<string[]>([
@@ -89,17 +115,50 @@ export const Address = ({ onValidityChange }: AddressProps) => {
     'Begumpet',
   ]);
 
+  // Restored values option synchronization
+  useEffect(() => {
+    if (addressDetails.currentState) {
+      setCurrentStateOptions((prev) => Array.from(new Set([...prev, addressDetails.currentState])));
+    }
+    if (addressDetails.currentCity) {
+      setCurrentCityOptions((prev) => Array.from(new Set([...prev, addressDetails.currentCity])));
+    }
+    if (addressDetails.currentPostOffice) {
+      setCurrentPostOfficeOptions((prev) => Array.from(new Set([...prev, addressDetails.currentPostOffice])));
+    }
+    if (addressDetails.permanentState) {
+      setPermanentStateOptions((prev) => Array.from(new Set([...prev, addressDetails.permanentState])));
+    }
+    if (addressDetails.permanentCity) {
+      setPermanentCityOptions((prev) => Array.from(new Set([...prev, addressDetails.permanentCity])));
+    }
+    if (addressDetails.permanentPostOffice) {
+      setPermanentPostOfficeOptions((prev) => Array.from(new Set([...prev, addressDetails.permanentPostOffice])));
+    }
+  }, [
+    addressDetails.currentState,
+    addressDetails.currentCity,
+    addressDetails.currentPostOffice,
+    addressDetails.permanentState,
+    addressDetails.permanentCity,
+    addressDetails.permanentPostOffice,
+  ]);
+
   // Lookup state: Current Address
   const [currentLoading, setCurrentLoading] = useState<boolean>(false);
   const [currentError, setCurrentError] = useState<string | null>(null);
   const [currentSuccess, setCurrentSuccess] = useState<boolean>(false);
-  const lastLookedUpCurrentPin = useRef<string>('');
+  const lastLookedUpCurrentPin = useRef<string>(
+    addressDetails.currentPinCode && addressDetails.currentPinCode.length === 6 && addressDetails.currentState ? addressDetails.currentPinCode : ''
+  );
 
   // Lookup state: Permanent Address
   const [permanentLoading, setPermanentLoading] = useState<boolean>(false);
   const [permanentError, setPermanentError] = useState<string | null>(null);
   const [permanentSuccess, setPermanentSuccess] = useState<boolean>(false);
-  const lastLookedUpPermanentPin = useRef<string>('');
+  const lastLookedUpPermanentPin = useRef<string>(
+    addressDetails.permanentPinCode && addressDetails.permanentPinCode.length === 6 && addressDetails.permanentState ? addressDetails.permanentPinCode : ''
+  );
 
   // Current Address PIN Lookup handler
   const handleCurrentLookup = async (pinOverride?: string) => {

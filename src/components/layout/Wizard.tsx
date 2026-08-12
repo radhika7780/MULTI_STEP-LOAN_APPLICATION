@@ -52,6 +52,8 @@ export const Wizard = () => {
               <KYC onValidityChange={setIsCurrentStepValid} />
             ) : currentStep === 4 ? (
               <Employment onValidityChange={setIsCurrentStepValid} />
+            ) : currentStep === 5 ? (
+              <Address onValidityChange={setIsCurrentStepValid} />
             ) : (
               CurrentStepComponent && <CurrentStepComponent />
             )}
@@ -59,7 +61,7 @@ export const Wizard = () => {
         </AnimatePresence>
       </div>
       <NavigationButtons
-        canProceed={currentStep >= 1 && currentStep <= 4 ? isCurrentStepValid : true}
+        canProceed={currentStep >= 1 && currentStep <= 5 ? isCurrentStepValid : true}
       />
     </div>
   );
