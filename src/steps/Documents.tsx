@@ -1,28 +1,40 @@
 import { useState, useRef, useEffect } from 'react';
 import { Upload, FileText, Eye, ExternalLink, X, RefreshCw } from 'lucide-react';
+import { useLoanStore } from '../store/loanStore';
 
-export const Documents = () => {
+interface DocumentsProps {
+  onValidityChange?: (isValid: boolean) => void;
+}
+
+export const Documents = ({ onValidityChange }: DocumentsProps) => {
+  const documentsState = useLoanStore((state) => state.documents);
+  const setDocuments = useLoanStore((state) => state.setDocuments);
+
   const documentTypes = [
     {
       id: 'panCard',
+      storeKey: 'pan' as const,
       title: 'PAN Card',
       description: 'Upload a clear copy of your PAN card.',
       required: true,
     },
     {
       id: 'aadhaarCard',
+      storeKey: 'aadhaar' as const,
       title: 'Aadhaar Card',
       description: 'Upload a clear copy of your Aadhaar card.',
       required: true,
     },
     {
       id: 'incomeProof',
+      storeKey: 'incomeProof' as const,
       title: 'Income Proof',
       description: 'Upload a recent income proof document.',
       required: true,
     },
     {
       id: 'addressProof',
+      storeKey: 'addressProof' as const,
       title: 'Address Proof',
       description: 'Upload a valid address proof document.',
       required: true,
@@ -63,6 +75,16 @@ export const Documents = () => {
     incomeProof: null,
     addressProof: null,
   });
+
+  // Report component validity to Wizard (requires actual File objects for all 4 required documents)
+  useEffect(() => {
+    const isValid =
+      !!selectedFiles.panCard &&
+      !!selectedFiles.aadhaarCard &&
+      !!selectedFiles.incomeProof &&
+      !!selectedFiles.addressProof;
+    onValidityChange?.(isValid);
+  }, [selectedFiles, onValidityChange]);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
@@ -110,7 +132,7 @@ export const Documents = () => {
     setPreviewUrls((prev) => ({ ...prev, [docId]: url }));
   };
 
-  const handleFileSelect = (docId: string, file: File | null) => {
+  const handleFileSelect = (docId: string, storeKey: 'pan' | 'aadhaar' | 'incomeProof' | 'addressProof', file: File | null) => {
     if (!file) return;
 
     const fileName = file.name.toLowerCase();
@@ -153,7 +175,7 @@ export const Documents = () => {
       return;
     }
 
-    // Valid File
+    // Valid File Selected
     setFileErrors((prev) => ({
       ...prev,
       [docId]: null,
@@ -163,12 +185,22 @@ export const Documents = () => {
       [docId]: file,
     }));
 
+    // Update Zustand metadata
+    setDocuments({
+      [storeKey]: {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        selected: true,
+      },
+    });
+
     // Create object URL for preview
     const objectUrl = URL.createObjectURL(file);
     updatePreviewUrl(docId, objectUrl);
   };
 
-  const handleRemoveFile = (docId: string) => {
+  const handleRemoveFile = (docId: string, storeKey: 'pan' | 'aadhaar' | 'incomeProof' | 'addressProof') => {
     setSelectedFiles((prev) => ({
       ...prev,
       [docId]: null,
@@ -181,6 +213,9 @@ export const Documents = () => {
     if (inputRefs.current[docId]) {
       inputRefs.current[docId]!.value = '';
     }
+    setDocuments({
+      [storeKey]: null,
+    });
   };
 
   const triggerFileInput = (docId: string) => {
@@ -207,10 +242,12 @@ export const Documents = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {documentTypes.map((doc) => {
           const selectedFile = selectedFiles[doc.id];
+          const restoredMeta = documentsState[doc.storeKey];
           const previewUrl = previewUrls[doc.id];
           const hasError = !!fileErrors[doc.id];
           const isImg = selectedFile ? isImageFile(selectedFile) : false;
           const isPdf = selectedFile ? isPdfFile(selectedFile) : false;
+          const isSelected = !!selectedFile || !!restoredMeta?.selected;
 
           return (
             <div
@@ -229,12 +266,12 @@ export const Documents = () => {
                   </label>
                   <span
                     className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                      selectedFile
+                      isSelected
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         : 'bg-gray-100 text-gray-600 border-gray-200'
                     }`}
                   >
-                    {selectedFile ? 'Selected' : 'Not Uploaded'}
+                    {isSelected ? 'Selected' : 'Not Uploaded'}
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mb-4">{doc.description}</p>
@@ -248,11 +285,11 @@ export const Documents = () => {
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
-                    handleFileSelect(doc.id, file);
+                    handleFileSelect(doc.id, doc.storeKey, file);
                   }}
                 />
 
-                {/* Upload Dropzone UI or Selected File View */}
+                {/* Case 1: Active Component File Object with Preview */}
                 {selectedFile && previewUrl ? (
                   <div className="border-2 border-solid border-emerald-200 rounded-xl p-4 bg-emerald-50/30 flex flex-col space-y-3">
                     <div className="flex items-start space-x-3">
@@ -340,14 +377,52 @@ export const Documents = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleRemoveFile(doc.id)}
+                        onClick={() => handleRemoveFile(doc.id, doc.storeKey)}
                         className="px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 transition-colors"
                       >
                         Remove
                       </button>
                     </div>
                   </div>
+                ) : restoredMeta ? (
+                  /* Case 2: Restored Metadata Only (after component remount) */
+                  <div className="border-2 border-solid border-amber-200 rounded-xl p-4 bg-amber-50/40 flex flex-col space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3 overflow-hidden">
+                        <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 font-semibold text-xs">
+                          DOC
+                        </div>
+                        <div className="truncate">
+                          <p className="text-xs font-semibold text-gray-900 truncate" title={restoredMeta.name}>
+                            {restoredMeta.name}
+                          </p>
+                          <p className="text-[11px] text-gray-500">{formatFileSize(restoredMeta.size)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => triggerFileInput(doc.id)}
+                          className="px-2.5 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors inline-flex items-center"
+                        >
+                          <RefreshCw className="w-3 h-3 mr-1 text-gray-500" />
+                          Reselect
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile(doc.id, doc.storeKey)}
+                          className="px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-amber-700 bg-amber-100/60 px-2.5 py-1 rounded-md font-medium">
+                      File must be reselected to preview.
+                    </p>
+                  </div>
                 ) : (
+                  /* Case 3: Empty Dropzone UI */
                   <div
                     onClick={() => triggerFileInput(doc.id)}
                     className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center bg-gray-50/50 hover:bg-blue-50/20 transition-colors cursor-pointer group ${
@@ -449,6 +524,7 @@ export const Documents = () => {
     </div>
   );
 };
+
 
 
 

@@ -51,6 +51,20 @@ export interface AddressDetailsData {
   sameAsCurrentAddress: boolean;
 }
 
+export interface DocumentItemData {
+  name: string;
+  size: number;
+  type: string;
+  selected: boolean;
+}
+
+export interface DocumentsData {
+  pan: DocumentItemData | null;
+  aadhaar: DocumentItemData | null;
+  incomeProof: DocumentItemData | null;
+  addressProof: DocumentItemData | null;
+}
+
 interface LoanStoreState {
   currentStep: number;
   totalSteps: number;
@@ -59,6 +73,7 @@ interface LoanStoreState {
   kycDetails: KYCDetailsData;
   employmentDetails: EmploymentDetailsData;
   addressDetails: AddressDetailsData;
+  documents: DocumentsData;
   nextStep: () => void;
   previousStep: () => void;
   goToStep: (step: number) => void;
@@ -73,6 +88,8 @@ interface LoanStoreState {
   clearEmploymentDetails: () => void;
   setAddressDetails: (data: Partial<AddressDetailsData>) => void;
   clearAddressDetails: () => void;
+  setDocuments: (data: Partial<DocumentsData>) => void;
+  clearDocuments: () => void;
 }
 
 export const useLoanStore = create<LoanStoreState>((set) => ({
@@ -121,6 +138,12 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
     permanentCity: '',
     permanentPostOffice: '',
     sameAsCurrentAddress: false,
+  },
+  documents: {
+    pan: null,
+    aadhaar: null,
+    incomeProof: null,
+    addressProof: null,
   },
   nextStep: () =>
     set((state) => ({
@@ -215,6 +238,19 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
         permanentCity: '',
         permanentPostOffice: '',
         sameAsCurrentAddress: false,
+      },
+    }),
+  setDocuments: (data: Partial<DocumentsData>) =>
+    set((state) => ({
+      documents: { ...state.documents, ...data },
+    })),
+  clearDocuments: () =>
+    set({
+      documents: {
+        pan: null,
+        aadhaar: null,
+        incomeProof: null,
+        addressProof: null,
       },
     }),
 }));
