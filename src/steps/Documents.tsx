@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { Upload, FileText, FileCheck } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Upload, FileText, Eye, ExternalLink, X, RefreshCw } from 'lucide-react';
 
 export const Documents = () => {
   const documentTypes = [
@@ -36,6 +36,13 @@ export const Documents = () => {
     addressProof: null,
   });
 
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string | null>>({
+    panCard: null,
+    aadhaarCard: null,
+    incomeProof: null,
+    addressProof: null,
+  });
+
   const [fileErrors, setFileErrors] = useState<Record<string, string | null>>({
     panCard: null,
     aadhaarCard: null,
@@ -43,7 +50,39 @@ export const Documents = () => {
     addressProof: null,
   });
 
+  const [modalData, setModalData] = useState<{
+    title: string;
+    fileName: string;
+    imageUrl: string;
+  } | null>(null);
+
   const inputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const previewUrlsRef = useRef<Record<string, string | null>>({
+    panCard: null,
+    aadhaarCard: null,
+    incomeProof: null,
+    addressProof: null,
+  });
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(previewUrlsRef.current).forEach((url) => {
+        if (url) URL.revokeObjectURL(url);
+      });
+    };
+  }, []);
+
+  // Keyboard close for modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setModalData(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
   const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
@@ -53,6 +92,22 @@ export const Documents = () => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isImageFile = (file: File): boolean => {
+    return file.type.startsWith('image/') || /\.(jpg|jpeg|png)$/i.test(file.name);
+  };
+
+  const isPdfFile = (file: File): boolean => {
+    return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  };
+
+  const updatePreviewUrl = (docId: string, url: string | null) => {
+    if (previewUrlsRef.current[docId]) {
+      URL.revokeObjectURL(previewUrlsRef.current[docId]!);
+    }
+    previewUrlsRef.current[docId] = url;
+    setPreviewUrls((prev) => ({ ...prev, [docId]: url }));
   };
 
   const handleFileSelect = (docId: string, file: File | null) => {
@@ -74,6 +129,7 @@ export const Documents = () => {
         ...prev,
         [docId]: null,
       }));
+      updatePreviewUrl(docId, null);
       if (inputRefs.current[docId]) {
         inputRefs.current[docId]!.value = '';
       }
@@ -90,6 +146,7 @@ export const Documents = () => {
         ...prev,
         [docId]: null,
       }));
+      updatePreviewUrl(docId, null);
       if (inputRefs.current[docId]) {
         inputRefs.current[docId]!.value = '';
       }
@@ -105,6 +162,10 @@ export const Documents = () => {
       ...prev,
       [docId]: file,
     }));
+
+    // Create object URL for preview
+    const objectUrl = URL.createObjectURL(file);
+    updatePreviewUrl(docId, objectUrl);
   };
 
   const handleRemoveFile = (docId: string) => {
@@ -116,6 +177,7 @@ export const Documents = () => {
       ...prev,
       [docId]: null,
     }));
+    updatePreviewUrl(docId, null);
     if (inputRefs.current[docId]) {
       inputRefs.current[docId]!.value = '';
     }
@@ -145,7 +207,10 @@ export const Documents = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {documentTypes.map((doc) => {
           const selectedFile = selectedFiles[doc.id];
+          const previewUrl = previewUrls[doc.id];
           const hasError = !!fileErrors[doc.id];
+          const isImg = selectedFile ? isImageFile(selectedFile) : false;
+          const isPdf = selectedFile ? isPdfFile(selectedFile) : false;
 
           return (
             <div
@@ -188,26 +253,99 @@ export const Documents = () => {
                 />
 
                 {/* Upload Dropzone UI or Selected File View */}
-                {selectedFile ? (
-                  <div className="border-2 border-solid border-emerald-200 rounded-xl p-4 bg-emerald-50/40 flex items-center justify-between">
-                    <div className="flex items-center space-x-3 overflow-hidden">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                        <FileCheck className="w-5 h-5" />
-                      </div>
-                      <div className="truncate">
+                {selectedFile && previewUrl ? (
+                  <div className="border-2 border-solid border-emerald-200 rounded-xl p-4 bg-emerald-50/30 flex flex-col space-y-3">
+                    <div className="flex items-start space-x-3">
+                      {/* Image Thumbnail Preview */}
+                      {isImg && (
+                        <div
+                          onClick={() =>
+                            setModalData({
+                              title: doc.title,
+                              fileName: selectedFile.name,
+                              imageUrl: previewUrl,
+                            })
+                          }
+                          className="relative group cursor-pointer shrink-0"
+                          title="Click to expand preview"
+                        >
+                          <img
+                            src={previewUrl}
+                            alt={`${doc.title} preview`}
+                            className="w-16 h-16 object-cover rounded-lg border border-gray-200 shadow-sm group-hover:opacity-90 transition-opacity"
+                          />
+                          <div className="absolute inset-0 bg-black/20 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <Eye className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* PDF Placeholder Preview */}
+                      {isPdf && (
+                        <div className="w-14 h-16 bg-red-50 text-red-600 rounded-lg flex flex-col items-center justify-center shrink-0 border border-red-100">
+                          <FileText className="w-6 h-6 text-red-500 mb-0.5" />
+                          <span className="text-[9px] font-bold tracking-tighter text-red-600 uppercase">PDF</span>
+                        </div>
+                      )}
+
+                      {/* File Details */}
+                      <div className="flex-1 min-w-0 pt-0.5">
                         <p className="text-xs font-semibold text-gray-900 truncate" title={selectedFile.name}>
                           {selectedFile.name}
                         </p>
-                        <p className="text-[11px] text-gray-500">{formatFileSize(selectedFile.size)}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {formatFileSize(selectedFile.size)} {isPdf && '• PDF Document'}
+                        </p>
+
+                        {/* PDF External Tab Trigger */}
+                        {isPdf && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(previewUrl, '_blank')}
+                            className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800 mt-1.5 transition-colors"
+                          >
+                            <ExternalLink className="w-3 h-3 mr-1" />
+                            Open PDF
+                          </button>
+                        )}
+                        {/* Image Modal Trigger Button */}
+                        {isImg && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setModalData({
+                                title: doc.title,
+                                fileName: selectedFile.name,
+                                imageUrl: previewUrl,
+                              })
+                            }
+                            className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800 mt-1.5 transition-colors"
+                          >
+                            <Eye className="w-3 h-3 mr-1" />
+                            View Image
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFile(doc.id)}
-                      className="px-3 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors shrink-0 ml-2"
-                    >
-                      Remove
-                    </button>
+
+                    {/* Card Actions: Replace & Remove */}
+                    <div className="pt-2 border-t border-emerald-100 flex items-center justify-end space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => triggerFileInput(doc.id)}
+                        className="px-2.5 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors inline-flex items-center"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1 text-gray-500" />
+                        Replace
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(doc.id)}
+                        className="px-2.5 py-1 text-xs font-medium text-red-600 bg-white border border-red-200 rounded-md hover:bg-red-50 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div
@@ -254,8 +392,63 @@ export const Documents = () => {
           );
         })}
       </div>
+
+      {/* Image Preview Modal */}
+      {modalData && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          onClick={() => setModalData(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-2xl w-full p-5 space-y-4 shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+              <div>
+                <h3 id="modal-title" className="text-lg font-bold text-gray-900">
+                  {modalData.title} Preview
+                </h3>
+                <p className="text-xs text-gray-500">{modalData.fileName}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalData(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Image Body */}
+            <div className="flex items-center justify-center bg-gray-900/5 rounded-xl p-2 max-h-[70vh] overflow-hidden">
+              <img
+                src={modalData.imageUrl}
+                alt={`${modalData.title} full view`}
+                className="max-h-[65vh] w-auto object-contain rounded-lg shadow-sm"
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setModalData(null)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 
