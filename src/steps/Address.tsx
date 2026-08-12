@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MapPin, Home, Building } from 'lucide-react';
@@ -37,14 +37,233 @@ export const Address = ({ onValidityChange }: AddressProps) => {
   const sameAsCurrentAddress = watch('sameAsCurrentAddress');
   const currentAddressLine1 = watch('currentAddressLine1');
   const currentAddressLine2 = watch('currentAddressLine2');
-  const currentPinCode = watch('currentPinCode');
+  const currentPinCode = watch('currentPinCode') || '';
   const currentState = watch('currentState');
   const currentCity = watch('currentCity');
   const currentPostOffice = watch('currentPostOffice');
+  const permanentPinCode = watch('permanentPinCode') || '';
+  const permanentState = watch('permanentState');
+  const permanentCity = watch('permanentCity');
+  const permanentPostOffice = watch('permanentPostOffice');
+
+  // Select dropdown options state
+  const [currentStateOptions, setCurrentStateOptions] = useState<string[]>([
+    'Telangana',
+    'Andhra Pradesh',
+    'Karnataka',
+    'Maharashtra',
+  ]);
+  const [currentCityOptions, setCurrentCityOptions] = useState<string[]>([
+    'Hyderabad',
+    'Secunderabad',
+    'Bengaluru',
+    'Mumbai',
+    'Visakhapatnam',
+  ]);
+  const [currentPostOfficeOptions, setCurrentPostOfficeOptions] = useState<string[]>([
+    'GPO',
+    'Banjara Hills',
+    'Kukatpally',
+    'Madhapur',
+    'Begumpet',
+  ]);
+
+  const [permanentStateOptions, setPermanentStateOptions] = useState<string[]>([
+    'Telangana',
+    'Andhra Pradesh',
+    'Karnataka',
+    'Maharashtra',
+  ]);
+  const [permanentCityOptions, setPermanentCityOptions] = useState<string[]>([
+    'Hyderabad',
+    'Secunderabad',
+    'Bengaluru',
+    'Mumbai',
+    'Visakhapatnam',
+  ]);
+  const [permanentPostOfficeOptions, setPermanentPostOfficeOptions] = useState<string[]>([
+    'GPO',
+    'Banjara Hills',
+    'Kukatpally',
+    'Madhapur',
+    'Begumpet',
+  ]);
+
+  // Lookup state: Current Address
+  const [currentLoading, setCurrentLoading] = useState<boolean>(false);
+  const [currentError, setCurrentError] = useState<string | null>(null);
+  const [currentSuccess, setCurrentSuccess] = useState<boolean>(false);
+  const lastLookedUpCurrentPin = useRef<string>('');
+
+  // Lookup state: Permanent Address
+  const [permanentLoading, setPermanentLoading] = useState<boolean>(false);
+  const [permanentError, setPermanentError] = useState<string | null>(null);
+  const [permanentSuccess, setPermanentSuccess] = useState<boolean>(false);
+  const lastLookedUpPermanentPin = useRef<string>('');
+
+  // Current Address PIN Lookup handler
+  const handleCurrentLookup = async (pinOverride?: string) => {
+    const pin = pinOverride || currentPinCode;
+    if (!pin || pin.length !== 6 || !/^[0-9]{6}$/.test(pin)) return;
+
+    setCurrentLoading(true);
+    setCurrentError(null);
+    setCurrentSuccess(false);
+
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+      if (!response.ok) {
+        throw new Error('Network response failed');
+      }
+      const data = await response.json();
+
+      if (
+        Array.isArray(data) &&
+        data.length > 0 &&
+        data[0].Status === 'Success' &&
+        Array.isArray(data[0].PostOffice) &&
+        data[0].PostOffice.length > 0
+      ) {
+        const poList = data[0].PostOffice;
+        const firstPo = poList[0];
+
+        if (firstPo.State) {
+          setCurrentStateOptions((prev) => Array.from(new Set([...prev, firstPo.State])));
+          setValue('currentState', firstPo.State, { shouldValidate: true, shouldTouch: true });
+        }
+
+        if (firstPo.District) {
+          setCurrentCityOptions((prev) => Array.from(new Set([...prev, firstPo.District])));
+          setValue('currentCity', firstPo.District, { shouldValidate: true, shouldTouch: true });
+        }
+
+        const poNames = poList.map((po: { Name: string }) => po.Name).filter(Boolean);
+        if (poNames.length > 0) {
+          setCurrentPostOfficeOptions((prev) => Array.from(new Set([...prev, ...poNames])));
+          setValue('currentPostOffice', poNames[0], { shouldValidate: true, shouldTouch: true });
+        }
+
+        setCurrentSuccess(true);
+        lastLookedUpCurrentPin.current = pin;
+      } else {
+        setCurrentError('Unable to find address details for this PIN code.');
+      }
+    } catch {
+      setCurrentError('Unable to lookup PIN code. Please try again.');
+    } finally {
+      setCurrentLoading(false);
+    }
+  };
+
+  // Permanent Address PIN Lookup handler
+  const handlePermanentLookup = async (pinOverride?: string) => {
+    if (sameAsCurrentAddress) return;
+    const pin = pinOverride || permanentPinCode;
+    if (!pin || pin.length !== 6 || !/^[0-9]{6}$/.test(pin)) return;
+
+    setPermanentLoading(true);
+    setPermanentError(null);
+    setPermanentSuccess(false);
+
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+      if (!response.ok) {
+        throw new Error('Network response failed');
+      }
+      const data = await response.json();
+
+      if (
+        Array.isArray(data) &&
+        data.length > 0 &&
+        data[0].Status === 'Success' &&
+        Array.isArray(data[0].PostOffice) &&
+        data[0].PostOffice.length > 0
+      ) {
+        const poList = data[0].PostOffice;
+        const firstPo = poList[0];
+
+        if (firstPo.State) {
+          setPermanentStateOptions((prev) => Array.from(new Set([...prev, firstPo.State])));
+          setValue('permanentState', firstPo.State, { shouldValidate: true, shouldTouch: true });
+        }
+
+        if (firstPo.District) {
+          setPermanentCityOptions((prev) => Array.from(new Set([...prev, firstPo.District])));
+          setValue('permanentCity', firstPo.District, { shouldValidate: true, shouldTouch: true });
+        }
+
+        const poNames = poList.map((po: { Name: string }) => po.Name).filter(Boolean);
+        if (poNames.length > 0) {
+          setPermanentPostOfficeOptions((prev) => Array.from(new Set([...prev, ...poNames])));
+          setValue('permanentPostOffice', poNames[0], { shouldValidate: true, shouldTouch: true });
+        }
+
+        setPermanentSuccess(true);
+        lastLookedUpPermanentPin.current = pin;
+      } else {
+        setPermanentError('Unable to find address details for this PIN code.');
+      }
+    } catch {
+      setPermanentError('Unable to lookup PIN code. Please try again.');
+    } finally {
+      setPermanentLoading(false);
+    }
+  };
+
+  // Current PIN change handler & PIN stale data clear
+  const handleCurrentPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+    e.target.value = val;
+    setValue('currentPinCode', val, { shouldValidate: true, shouldTouch: true });
+
+    // Clear stale location data if PIN changes away from previous looked up PIN
+    if (lastLookedUpCurrentPin.current && val !== lastLookedUpCurrentPin.current) {
+      setValue('currentState', '', { shouldValidate: true, shouldTouch: true });
+      setValue('currentCity', '', { shouldValidate: true, shouldTouch: true });
+      setValue('currentPostOffice', '', { shouldValidate: true, shouldTouch: true });
+      setCurrentError(null);
+      setCurrentSuccess(false);
+      lastLookedUpCurrentPin.current = '';
+    }
+
+    // Auto trigger lookup when valid 6 digits entered
+    if (val.length === 6 && /^[0-9]{6}$/.test(val) && val !== lastLookedUpCurrentPin.current) {
+      handleCurrentLookup(val);
+    }
+  };
+
+  // Permanent PIN change handler & PIN stale data clear
+  const handlePermanentPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (sameAsCurrentAddress) return;
+    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+    e.target.value = val;
+    setValue('permanentPinCode', val, { shouldValidate: true, shouldTouch: true });
+
+    // Clear stale location data if PIN changes away from previous looked up PIN
+    if (lastLookedUpPermanentPin.current && val !== lastLookedUpPermanentPin.current) {
+      setValue('permanentState', '', { shouldValidate: true, shouldTouch: true });
+      setValue('permanentCity', '', { shouldValidate: true, shouldTouch: true });
+      setValue('permanentPostOffice', '', { shouldValidate: true, shouldTouch: true });
+      setPermanentError(null);
+      setPermanentSuccess(false);
+      lastLookedUpPermanentPin.current = '';
+    }
+
+    // Auto trigger lookup when valid 6 digits entered
+    if (val.length === 6 && /^[0-9]{6}$/.test(val) && val !== lastLookedUpPermanentPin.current) {
+      handlePermanentLookup(val);
+    }
+  };
 
   // Handle same-as-current address copy & synchronization
   useEffect(() => {
     if (sameAsCurrentAddress) {
+      setPermanentError(null);
+      setPermanentSuccess(false);
+      setPermanentStateOptions((prev) => Array.from(new Set([...prev, ...currentStateOptions])));
+      setPermanentCityOptions((prev) => Array.from(new Set([...prev, ...currentCityOptions])));
+      setPermanentPostOfficeOptions((prev) => Array.from(new Set([...prev, ...currentPostOfficeOptions])));
+
       setValue('permanentAddressLine1', currentAddressLine1 || '', { shouldValidate: true, shouldTouch: true });
       setValue('permanentAddressLine2', currentAddressLine2 || '', { shouldValidate: true, shouldTouch: true });
       setValue('permanentPinCode', currentPinCode || '', { shouldValidate: true, shouldTouch: true });
@@ -60,6 +279,9 @@ export const Address = ({ onValidityChange }: AddressProps) => {
     currentState,
     currentCity,
     currentPostOffice,
+    currentStateOptions,
+    currentCityOptions,
+    currentPostOfficeOptions,
     setValue,
   ]);
 
@@ -67,18 +289,6 @@ export const Address = ({ onValidityChange }: AddressProps) => {
   useEffect(() => {
     onValidityChange?.(isValid);
   }, [isValid, onValidityChange]);
-
-  const handleCurrentPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-    e.target.value = val;
-    setValue('currentPinCode', val, { shouldValidate: true, shouldTouch: true });
-  };
-
-  const handlePermanentPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
-    e.target.value = val;
-    setValue('permanentPinCode', val, { shouldValidate: true, shouldTouch: true });
-  };
 
   return (
     <div className="space-y-8">
@@ -148,24 +358,45 @@ export const Address = ({ onValidityChange }: AddressProps) => {
             <label htmlFor="currentPinCode" className="block text-sm font-medium text-gray-700 mb-1">
               PIN Code <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              id="currentPinCode"
-              placeholder="Enter 6-digit PIN code"
-              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono"
-              aria-invalid={touchedFields.currentPinCode && !!errors.currentPinCode}
-              aria-describedby={errors.currentPinCode ? 'currentPinCode-error' : undefined}
-              {...register('currentPinCode', {
-                onChange: handleCurrentPinChange,
-              })}
-            />
-            {touchedFields.currentPinCode && errors.currentPinCode ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                id="currentPinCode"
+                placeholder="Enter 6-digit PIN code"
+                className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono"
+                aria-invalid={touchedFields.currentPinCode && !!errors.currentPinCode}
+                aria-describedby={errors.currentPinCode ? 'currentPinCode-error' : undefined}
+                {...register('currentPinCode', {
+                  onChange: handleCurrentPinChange,
+                })}
+              />
+              <button
+                type="button"
+                onClick={() => handleCurrentLookup()}
+                disabled={currentPinCode.length !== 6 || !/^[0-9]{6}$/.test(currentPinCode) || currentLoading}
+                className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg whitespace-nowrap transition-colors"
+              >
+                {currentLoading ? 'Looking up...' : 'Lookup PIN'}
+              </button>
+            </div>
+
+            {currentLoading && (
+              <p className="text-xs text-blue-600 mt-1">Looking up PIN code...</p>
+            )}
+            {currentError && !currentLoading && (
+              <p role="alert" className="text-xs text-red-500 mt-1">{currentError}</p>
+            )}
+            {currentSuccess && !currentError && !currentLoading && (
+              <p className="text-xs text-green-600 mt-1">PIN code details found.</p>
+            )}
+            {touchedFields.currentPinCode && errors.currentPinCode && !currentLoading && !currentError && !currentSuccess && (
               <p id="currentPinCode-error" role="alert" className="text-xs text-red-500 mt-1">
                 {errors.currentPinCode.message}
               </p>
-            ) : (
+            )}
+            {!currentLoading && !currentError && !currentSuccess && (!touchedFields.currentPinCode || !errors.currentPinCode) && (
               <p className="text-xs text-gray-400 mt-1">
                 PIN code lookup will be available here.
               </p>
@@ -182,15 +413,17 @@ export const Address = ({ onValidityChange }: AddressProps) => {
               className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               aria-invalid={touchedFields.currentState && !!errors.currentState}
               aria-describedby={errors.currentState ? 'currentState-error' : undefined}
+              value={currentState || ''}
               {...register('currentState')}
             >
               <option value="" disabled>
                 Select state
               </option>
-              <option value="Telangana">Telangana</option>
-              <option value="Andhra Pradesh">Andhra Pradesh</option>
-              <option value="Karnataka">Karnataka</option>
-              <option value="Maharashtra">Maharashtra</option>
+              {currentStateOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
             {touchedFields.currentState && errors.currentState && (
               <p id="currentState-error" role="alert" className="text-xs text-red-500 mt-1">
@@ -209,16 +442,17 @@ export const Address = ({ onValidityChange }: AddressProps) => {
               className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               aria-invalid={touchedFields.currentCity && !!errors.currentCity}
               aria-describedby={errors.currentCity ? 'currentCity-error' : undefined}
+              value={currentCity || ''}
               {...register('currentCity')}
             >
               <option value="" disabled>
                 Select city
               </option>
-              <option value="Hyderabad">Hyderabad</option>
-              <option value="Secunderabad">Secunderabad</option>
-              <option value="Bengaluru">Bengaluru</option>
-              <option value="Mumbai">Mumbai</option>
-              <option value="Visakhapatnam">Visakhapatnam</option>
+              {currentCityOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
             {touchedFields.currentCity && errors.currentCity && (
               <p id="currentCity-error" role="alert" className="text-xs text-red-500 mt-1">
@@ -237,16 +471,17 @@ export const Address = ({ onValidityChange }: AddressProps) => {
               className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               aria-invalid={touchedFields.currentPostOffice && !!errors.currentPostOffice}
               aria-describedby={errors.currentPostOffice ? 'currentPostOffice-error' : undefined}
+              value={currentPostOffice || ''}
               {...register('currentPostOffice')}
             >
               <option value="" disabled>
                 Select post office
               </option>
-              <option value="GPO">GPO</option>
-              <option value="Banjara Hills">Banjara Hills</option>
-              <option value="Kukatpally">Kukatpally</option>
-              <option value="Madhapur">Madhapur</option>
-              <option value="Begumpet">Begumpet</option>
+              {currentPostOfficeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
             {touchedFields.currentPostOffice && errors.currentPostOffice && (
               <p id="currentPostOffice-error" role="alert" className="text-xs text-red-500 mt-1">
@@ -287,7 +522,8 @@ export const Address = ({ onValidityChange }: AddressProps) => {
               type="text"
               id="permanentAddressLine1"
               placeholder="Enter address line 1"
-              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              disabled={sameAsCurrentAddress}
+              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               aria-invalid={touchedFields.permanentAddressLine1 && !!errors.permanentAddressLine1}
               aria-describedby={errors.permanentAddressLine1 ? 'permanentAddressLine1-error' : undefined}
               {...register('permanentAddressLine1')}
@@ -308,7 +544,8 @@ export const Address = ({ onValidityChange }: AddressProps) => {
               type="text"
               id="permanentAddressLine2"
               placeholder="Enter address line 2"
-              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              disabled={sameAsCurrentAddress}
+              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               aria-invalid={touchedFields.permanentAddressLine2 && !!errors.permanentAddressLine2}
               aria-describedby={errors.permanentAddressLine2 ? 'permanentAddressLine2-error' : undefined}
               {...register('permanentAddressLine2')}
@@ -325,24 +562,46 @@ export const Address = ({ onValidityChange }: AddressProps) => {
             <label htmlFor="permanentPinCode" className="block text-sm font-medium text-gray-700 mb-1">
               PIN Code <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              id="permanentPinCode"
-              placeholder="Enter 6-digit PIN code"
-              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono"
-              aria-invalid={touchedFields.permanentPinCode && !!errors.permanentPinCode}
-              aria-describedby={errors.permanentPinCode ? 'permanentPinCode-error' : undefined}
-              {...register('permanentPinCode', {
-                onChange: handlePermanentPinChange,
-              })}
-            />
-            {touchedFields.permanentPinCode && errors.permanentPinCode ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                id="permanentPinCode"
+                placeholder="Enter 6-digit PIN code"
+                disabled={sameAsCurrentAddress}
+                className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm font-mono disabled:bg-gray-100 disabled:cursor-not-allowed"
+                aria-invalid={touchedFields.permanentPinCode && !!errors.permanentPinCode}
+                aria-describedby={errors.permanentPinCode ? 'permanentPinCode-error' : undefined}
+                {...register('permanentPinCode', {
+                  onChange: handlePermanentPinChange,
+                })}
+              />
+              <button
+                type="button"
+                onClick={() => handlePermanentLookup()}
+                disabled={sameAsCurrentAddress || permanentPinCode.length !== 6 || !/^[0-9]{6}$/.test(permanentPinCode) || permanentLoading}
+                className="px-3.5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg whitespace-nowrap transition-colors"
+              >
+                {permanentLoading ? 'Looking up...' : 'Lookup PIN'}
+              </button>
+            </div>
+
+            {!sameAsCurrentAddress && permanentLoading && (
+              <p className="text-xs text-blue-600 mt-1">Looking up PIN code...</p>
+            )}
+            {!sameAsCurrentAddress && permanentError && !permanentLoading && (
+              <p role="alert" className="text-xs text-red-500 mt-1">{permanentError}</p>
+            )}
+            {!sameAsCurrentAddress && permanentSuccess && !permanentError && !permanentLoading && (
+              <p className="text-xs text-green-600 mt-1">PIN code details found.</p>
+            )}
+            {!sameAsCurrentAddress && touchedFields.permanentPinCode && errors.permanentPinCode && !permanentLoading && !permanentError && !permanentSuccess && (
               <p id="permanentPinCode-error" role="alert" className="text-xs text-red-500 mt-1">
                 {errors.permanentPinCode.message}
               </p>
-            ) : (
+            )}
+            {!sameAsCurrentAddress && !permanentLoading && !permanentError && !permanentSuccess && (!touchedFields.permanentPinCode || !errors.permanentPinCode) && (
               <p className="text-xs text-gray-400 mt-1">
                 PIN code lookup will be available here.
               </p>
@@ -356,18 +615,21 @@ export const Address = ({ onValidityChange }: AddressProps) => {
             </label>
             <select
               id="permanentState"
-              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              disabled={sameAsCurrentAddress}
+              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               aria-invalid={touchedFields.permanentState && !!errors.permanentState}
               aria-describedby={errors.permanentState ? 'permanentState-error' : undefined}
+              value={permanentState || ''}
               {...register('permanentState')}
             >
               <option value="" disabled>
                 Select state
               </option>
-              <option value="Telangana">Telangana</option>
-              <option value="Andhra Pradesh">Andhra Pradesh</option>
-              <option value="Karnataka">Karnataka</option>
-              <option value="Maharashtra">Maharashtra</option>
+              {permanentStateOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
             {touchedFields.permanentState && errors.permanentState && (
               <p id="permanentState-error" role="alert" className="text-xs text-red-500 mt-1">
@@ -383,19 +645,21 @@ export const Address = ({ onValidityChange }: AddressProps) => {
             </label>
             <select
               id="permanentCity"
-              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              disabled={sameAsCurrentAddress}
+              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               aria-invalid={touchedFields.permanentCity && !!errors.permanentCity}
               aria-describedby={errors.permanentCity ? 'permanentCity-error' : undefined}
+              value={permanentCity || ''}
               {...register('permanentCity')}
             >
               <option value="" disabled>
                 Select city
               </option>
-              <option value="Hyderabad">Hyderabad</option>
-              <option value="Secunderabad">Secunderabad</option>
-              <option value="Bengaluru">Bengaluru</option>
-              <option value="Mumbai">Mumbai</option>
-              <option value="Visakhapatnam">Visakhapatnam</option>
+              {permanentCityOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
             {touchedFields.permanentCity && errors.permanentCity && (
               <p id="permanentCity-error" role="alert" className="text-xs text-red-500 mt-1">
@@ -411,19 +675,21 @@ export const Address = ({ onValidityChange }: AddressProps) => {
             </label>
             <select
               id="permanentPostOffice"
-              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              disabled={sameAsCurrentAddress}
+              className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               aria-invalid={touchedFields.permanentPostOffice && !!errors.permanentPostOffice}
               aria-describedby={errors.permanentPostOffice ? 'permanentPostOffice-error' : undefined}
+              value={permanentPostOffice || ''}
               {...register('permanentPostOffice')}
             >
               <option value="" disabled>
                 Select post office
               </option>
-              <option value="GPO">GPO</option>
-              <option value="Banjara Hills">Banjara Hills</option>
-              <option value="Kukatpally">Kukatpally</option>
-              <option value="Madhapur">Madhapur</option>
-              <option value="Begumpet">Begumpet</option>
+              {permanentPostOfficeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
             </select>
             {touchedFields.permanentPostOffice && errors.permanentPostOffice && (
               <p id="permanentPostOffice-error" role="alert" className="text-xs text-red-500 mt-1">
@@ -436,3 +702,4 @@ export const Address = ({ onValidityChange }: AddressProps) => {
     </div>
   );
 };
+
