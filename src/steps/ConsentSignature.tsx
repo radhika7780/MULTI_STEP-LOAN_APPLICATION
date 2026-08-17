@@ -1,6 +1,33 @@
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { PenTool, FileCheck, ShieldCheck, FileText, CheckSquare } from 'lucide-react';
+import { consentSignatureSchema, ConsentSignatureFormData } from '../schemas/consentSignatureSchema';
 
-export const ConsentSignature = () => {
+interface ConsentSignatureProps {
+  onValidityChange?: (isValid: boolean) => void;
+}
+
+export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) => {
+  const {
+    register,
+    formState: { errors, touchedFields, isValid },
+  } = useForm<ConsentSignatureFormData>({
+    resolver: zodResolver(consentSignatureSchema),
+    mode: 'onChange',
+    defaultValues: {
+      applicationDeclaration: false,
+      termsAccepted: false,
+      privacyConsent: false,
+      signatureName: '',
+      finalAcknowledgement: false,
+    },
+  });
+
+  useEffect(() => {
+    onValidityChange?.(isValid);
+  }, [isValid, onValidityChange]);
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -25,18 +52,28 @@ export const ConsentSignature = () => {
           <p className="text-sm text-gray-600 leading-relaxed">
             I confirm that the information provided in this loan application is true and complete to the best of my knowledge.
           </p>
-          <div className="flex items-start space-x-3 pt-1">
-            <input
-              type="checkbox"
-              id="applicationDeclaration"
-              className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-            />
-            <label
-              htmlFor="applicationDeclaration"
-              className="text-sm font-medium text-gray-700 cursor-pointer select-none"
-            >
-              I agree to the application declaration.
-            </label>
+          <div>
+            <div className="flex items-start space-x-3 pt-1">
+              <input
+                type="checkbox"
+                id="applicationDeclaration"
+                className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                aria-invalid={touchedFields.applicationDeclaration && !!errors.applicationDeclaration}
+                aria-describedby={errors.applicationDeclaration ? 'applicationDeclaration-error' : undefined}
+                {...register('applicationDeclaration')}
+              />
+              <label
+                htmlFor="applicationDeclaration"
+                className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+              >
+                I agree to the application declaration.
+              </label>
+            </div>
+            {touchedFields.applicationDeclaration && errors.applicationDeclaration && (
+              <p id="applicationDeclaration-error" role="alert" className="text-xs text-red-500 mt-1">
+                {errors.applicationDeclaration.message}
+              </p>
+            )}
           </div>
         </div>
 
@@ -53,18 +90,28 @@ export const ConsentSignature = () => {
                 By proceeding with this application, I acknowledge that the information provided may be used for processing and evaluating my loan application.
               </p>
             </div>
-            <div className="flex items-start space-x-3 pt-2">
-              <input
-                type="checkbox"
-                id="termsAndConditions"
-                className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-              />
-              <label
-                htmlFor="termsAndConditions"
-                className="text-sm font-medium text-gray-700 cursor-pointer select-none"
-              >
-                I have read and agree to the Terms & Conditions.
-              </label>
+            <div>
+              <div className="flex items-start space-x-3 pt-2">
+                <input
+                  type="checkbox"
+                  id="termsAccepted"
+                  className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                  aria-invalid={touchedFields.termsAccepted && !!errors.termsAccepted}
+                  aria-describedby={errors.termsAccepted ? 'termsAccepted-error' : undefined}
+                  {...register('termsAccepted')}
+                />
+                <label
+                  htmlFor="termsAccepted"
+                  className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+                >
+                  I have read and agree to the Terms & Conditions.
+                </label>
+              </div>
+              {touchedFields.termsAccepted && errors.termsAccepted && (
+                <p id="termsAccepted-error" role="alert" className="text-xs text-red-500 mt-1">
+                  {errors.termsAccepted.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -79,18 +126,28 @@ export const ConsentSignature = () => {
                 I consent to the processing of my personal information for the purpose of evaluating and processing this loan application.
               </p>
             </div>
-            <div className="flex items-start space-x-3 pt-2">
-              <input
-                type="checkbox"
-                id="privacyConsent"
-                className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-              />
-              <label
-                htmlFor="privacyConsent"
-                className="text-sm font-medium text-gray-700 cursor-pointer select-none"
-              >
-                I consent to the processing of my information.
-              </label>
+            <div>
+              <div className="flex items-start space-x-3 pt-2">
+                <input
+                  type="checkbox"
+                  id="privacyConsent"
+                  className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                  aria-invalid={touchedFields.privacyConsent && !!errors.privacyConsent}
+                  aria-describedby={errors.privacyConsent ? 'privacyConsent-error' : undefined}
+                  {...register('privacyConsent')}
+                />
+                <label
+                  htmlFor="privacyConsent"
+                  className="text-sm font-medium text-gray-700 cursor-pointer select-none"
+                >
+                  I consent to the processing of my information.
+                </label>
+              </div>
+              {touchedFields.privacyConsent && errors.privacyConsent && (
+                <p id="privacyConsent-error" role="alert" className="text-xs text-red-500 mt-1">
+                  {errors.privacyConsent.message}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -127,7 +184,15 @@ export const ConsentSignature = () => {
               id="signatureName"
               placeholder="Enter your full name"
               className="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              aria-invalid={touchedFields.signatureName && !!errors.signatureName}
+              aria-describedby={errors.signatureName ? 'signatureName-error' : undefined}
+              {...register('signatureName')}
             />
+            {touchedFields.signatureName && errors.signatureName && (
+              <p id="signatureName-error" role="alert" className="text-xs text-red-500 mt-1">
+                {errors.signatureName.message}
+              </p>
+            )}
           </div>
         </div>
 
@@ -140,22 +205,33 @@ export const ConsentSignature = () => {
           <p className="text-sm text-gray-700 leading-relaxed font-medium">
             I understand that submitting this application constitutes my electronic consent and acknowledgement of the information provided.
           </p>
-          <div className="flex items-start space-x-3 pt-1">
-            <input
-              type="checkbox"
-              id="finalAcknowledgement"
-              className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
-            />
-            <label
-              htmlFor="finalAcknowledgement"
-              className="text-sm font-semibold text-gray-900 cursor-pointer select-none"
-            >
-              I confirm and acknowledge the above.
-            </label>
+          <div>
+            <div className="flex items-start space-x-3 pt-1">
+              <input
+                type="checkbox"
+                id="finalAcknowledgement"
+                className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer"
+                aria-invalid={touchedFields.finalAcknowledgement && !!errors.finalAcknowledgement}
+                aria-describedby={errors.finalAcknowledgement ? 'finalAcknowledgement-error' : undefined}
+                {...register('finalAcknowledgement')}
+              />
+              <label
+                htmlFor="finalAcknowledgement"
+                className="text-sm font-semibold text-gray-900 cursor-pointer select-none"
+              >
+                I confirm and acknowledge the above.
+              </label>
+            </div>
+            {touchedFields.finalAcknowledgement && errors.finalAcknowledgement && (
+              <p id="finalAcknowledgement-error" role="alert" className="text-xs text-red-500 mt-1">
+                {errors.finalAcknowledgement.message}
+              </p>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 };
+
 
