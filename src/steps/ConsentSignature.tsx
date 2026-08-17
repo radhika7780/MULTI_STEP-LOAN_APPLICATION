@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PenTool, FileCheck, ShieldCheck, FileText, CheckSquare } from 'lucide-react';
@@ -9,6 +9,14 @@ interface ConsentSignatureProps {
 }
 
 export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) => {
+  const [hasSignature, setHasSignature] = useState(false);
+  const [signatureTouched, setSignatureTouched] = useState(false);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const isDrawingRef = useRef(false);
+  const hasSignatureRef = useRef(false);
+
   const {
     register,
     formState: { errors, touchedFields, isValid },
@@ -24,9 +32,136 @@ export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) =>
     },
   });
 
+  const isFormValid = isValid && hasSignature;
+
   useEffect(() => {
-    onValidityChange?.(isValid);
-  }, [isValid, onValidityChange]);
+    onValidityChange?.(isFormValid);
+  }, [isFormValid, onValidityChange]);
+
+  const updateCanvasSize = () => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const rect = container.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const ctx = canvas.getContext('2d');
+    let dataUrl: string | null = null;
+    if (hasSignatureRef.current && ctx) {
+      dataUrl = canvas.toDataURL();
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.5;
+
+      if (dataUrl) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        };
+        img.src = dataUrl;
+      }
+    }
+  };
+
+  useEffect(() => {
+    updateCanvasSize();
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      updateCanvasSize();
+    });
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const getCoordinates = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.setPointerCapture(e.pointerId);
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    isDrawingRef.current = true;
+    setSignatureTouched(true);
+
+    const { x, y } = getCoordinates(e);
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.5;
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+
+    setHasSignature(true);
+    hasSignatureRef.current = true;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { x, y } = getCoordinates(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current) return;
+    isDrawingRef.current = false;
+    const canvas = canvasRef.current;
+    if (canvas && canvas.hasPointerCapture(e.pointerId)) {
+      canvas.releasePointerCapture(e.pointerId);
+    }
+  };
+
+  const handlePointerLeave = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isDrawingRef.current && (!canvasRef.current || !canvasRef.current.hasPointerCapture(e.pointerId))) {
+      isDrawingRef.current = false;
+    }
+  };
+
+  const handleClearSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    setHasSignature(false);
+    hasSignatureRef.current = false;
+  };
 
   return (
     <div className="space-y-8">
@@ -161,17 +296,56 @@ export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) =>
 
           {/* Section 4: Signature Pad UI */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Signature
-            </label>
-            <div className="w-full h-[180px] border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 flex items-center justify-center select-none transition-colors">
-              <span className="text-gray-400 font-medium text-sm">
-                Sign here
-              </span>
+            <div className="flex items-center justify-between mb-2">
+              <label htmlFor="signatureCanvas" className="block text-sm font-medium text-gray-700">
+                Signature
+              </label>
+              {hasSignature && (
+                <button
+                  type="button"
+                  onClick={handleClearSignature}
+                  className="text-xs text-red-600 hover:text-red-700 font-medium cursor-pointer transition-colors"
+                >
+                  Clear Signature
+                </button>
+              )}
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Please provide your electronic signature.
-            </p>
+
+            <div
+              ref={containerRef}
+              className="relative w-full h-[180px] border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 overflow-hidden select-none transition-colors"
+            >
+              <canvas
+                ref={canvasRef}
+                id="signatureCanvas"
+                aria-label="Electronic signature pad"
+                aria-invalid={signatureTouched && !hasSignature}
+                aria-describedby={signatureTouched && !hasSignature ? 'signatureCanvas-error' : undefined}
+                className="w-full h-full cursor-crosshair touch-none block"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerLeave={handlePointerLeave}
+              />
+
+              {!hasSignature && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                  <span className="text-gray-400 font-medium text-sm">
+                    Sign here
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {signatureTouched && !hasSignature ? (
+              <p id="signatureCanvas-error" role="alert" className="text-xs text-red-500 mt-1">
+                Please provide your electronic signature.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-2">
+                Please provide your electronic signature.
+              </p>
+            )}
           </div>
 
           {/* Section 5: Signature Name */}
@@ -233,5 +407,6 @@ export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) =>
     </div>
   );
 };
+
 
 
