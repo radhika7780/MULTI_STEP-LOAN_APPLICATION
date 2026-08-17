@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLoanStore } from '../../store/loanStore';
 import { ProgressBar } from './ProgressBar';
@@ -28,6 +28,10 @@ const STEPS = [
 export const Wizard = () => {
   const currentStep = useLoanStore((state) => state.currentStep);
   const [isCurrentStepValid, setIsCurrentStepValid] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsCurrentStepValid(false);
+  }, [currentStep]);
 
   const CurrentStepComponent = STEPS[currentStep - 1];
 

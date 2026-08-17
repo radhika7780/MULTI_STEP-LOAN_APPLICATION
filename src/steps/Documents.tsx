@@ -76,15 +76,16 @@ export const Documents = ({ onValidityChange }: DocumentsProps) => {
     addressProof: null,
   });
 
-  // Report component validity to Wizard (requires actual File objects for all 4 required documents)
+  // Report component validity to Wizard (requires selected files or stored metadata for all 4 required documents)
   useEffect(() => {
-    const isValid =
-      !!selectedFiles.panCard &&
-      !!selectedFiles.aadhaarCard &&
-      !!selectedFiles.incomeProof &&
-      !!selectedFiles.addressProof;
+    const isPanValid = !!selectedFiles.panCard || documentsState.pan?.selected === true;
+    const isAadhaarValid = !!selectedFiles.aadhaarCard || documentsState.aadhaar?.selected === true;
+    const isIncomeValid = !!selectedFiles.incomeProof || documentsState.incomeProof?.selected === true;
+    const isAddressValid = !!selectedFiles.addressProof || documentsState.addressProof?.selected === true;
+
+    const isValid = isPanValid && isAadhaarValid && isIncomeValid && isAddressValid;
     onValidityChange?.(isValid);
-  }, [selectedFiles, onValidityChange]);
+  }, [selectedFiles, documentsState, onValidityChange]);
 
   // Cleanup object URLs on unmount
   useEffect(() => {
