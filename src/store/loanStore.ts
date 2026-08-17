@@ -65,6 +65,15 @@ export interface DocumentsData {
   addressProof: DocumentItemData | null;
 }
 
+export interface ConsentSignatureData {
+  applicationDeclaration: boolean;
+  termsAccepted: boolean;
+  privacyConsent: boolean;
+  signatureName: string;
+  finalAcknowledgement: boolean;
+  signatureData: string;
+}
+
 interface LoanStoreState {
   currentStep: number;
   totalSteps: number;
@@ -74,6 +83,7 @@ interface LoanStoreState {
   employmentDetails: EmploymentDetailsData;
   addressDetails: AddressDetailsData;
   documents: DocumentsData;
+  consentSignature: ConsentSignatureData;
   nextStep: () => void;
   previousStep: () => void;
   goToStep: (step: number) => void;
@@ -90,6 +100,8 @@ interface LoanStoreState {
   clearAddressDetails: () => void;
   setDocuments: (data: Partial<DocumentsData>) => void;
   clearDocuments: () => void;
+  setConsentSignature: (data: Partial<ConsentSignatureData>) => void;
+  clearConsentSignature: () => void;
 }
 
 export const useLoanStore = create<LoanStoreState>((set) => ({
@@ -144,6 +156,14 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
     aadhaar: null,
     incomeProof: null,
     addressProof: null,
+  },
+  consentSignature: {
+    applicationDeclaration: false,
+    termsAccepted: false,
+    privacyConsent: false,
+    signatureName: '',
+    finalAcknowledgement: false,
+    signatureData: '',
   },
   nextStep: () =>
     set((state) => ({
@@ -251,6 +271,21 @@ export const useLoanStore = create<LoanStoreState>((set) => ({
         aadhaar: null,
         incomeProof: null,
         addressProof: null,
+      },
+    }),
+  setConsentSignature: (data: Partial<ConsentSignatureData>) =>
+    set((state) => ({
+      consentSignature: { ...state.consentSignature, ...data },
+    })),
+  clearConsentSignature: () =>
+    set({
+      consentSignature: {
+        applicationDeclaration: false,
+        termsAccepted: false,
+        privacyConsent: false,
+        signatureName: '',
+        finalAcknowledgement: false,
+        signatureData: '',
       },
     }),
 }));

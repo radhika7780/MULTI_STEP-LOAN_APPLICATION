@@ -3,40 +3,60 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { PenTool, FileCheck, ShieldCheck, FileText, CheckSquare } from 'lucide-react';
 import { consentSignatureSchema, ConsentSignatureFormData } from '../schemas/consentSignatureSchema';
+import { useLoanStore } from '../store/loanStore';
 
 interface ConsentSignatureProps {
   onValidityChange?: (isValid: boolean) => void;
 }
 
 export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) => {
-  const [hasSignature, setHasSignature] = useState(false);
+  const consentSignature = useLoanStore((state) => state.consentSignature);
+  const setConsentSignature = useLoanStore((state) => state.setConsentSignature);
+
+  const [hasSignature, setHasSignature] = useState(!!consentSignature.signatureData);
   const [signatureTouched, setSignatureTouched] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isDrawingRef = useRef(false);
-  const hasSignatureRef = useRef(false);
+  const hasSignatureRef = useRef(!!consentSignature.signatureData);
 
   const {
     register,
+    watch,
     formState: { errors, touchedFields, isValid },
   } = useForm<ConsentSignatureFormData>({
     resolver: zodResolver(consentSignatureSchema),
     mode: 'onChange',
     defaultValues: {
-      applicationDeclaration: false,
-      termsAccepted: false,
-      privacyConsent: false,
-      signatureName: '',
-      finalAcknowledgement: false,
+      applicationDeclaration: consentSignature.applicationDeclaration || false,
+      termsAccepted: consentSignature.termsAccepted || false,
+      privacyConsent: consentSignature.privacyConsent || false,
+      signatureName: consentSignature.signatureName || '',
+      finalAcknowledgement: consentSignature.finalAcknowledgement || false,
     },
   });
 
-  const isFormValid = isValid && hasSignature;
-
+  // Sync form values to Zustand store
   useEffect(() => {
-    onValidityChange?.(isFormValid);
-  }, [isFormValid, onValidityChange]);
+    const subscription = watch((values) => {
+      setConsentSignature({
+        applicationDeclaration: values.applicationDeclaration ?? false,
+        termsAccepted: values.termsAccepted ?? false,
+        privacyConsent: values.privacyConsent ?? false,
+        signatureName: values.signatureName ?? '',
+        finalAcknowledgement: values.finalAcknowledgement ?? false,
+      });
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, setConsentSignature]);
+
+  const isStepValid = isValid && hasSignature;
+
+  // Form validity callback
+  useEffect(() => {
+    onValidityChange?.(isStepValid);
+  }, [isStepValid, onValidityChange]);
 
   const updateCanvasSize = () => {
     const canvas = canvasRef.current;
@@ -47,29 +67,39 @@ export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) =>
     if (rect.width === 0 || rect.height === 0) return;
 
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const storedSignature = useLoanStore.getState().consentSignature.signatureData;
     let dataUrl: string | null = null;
-    if (hasSignatureRef.current && ctx) {
-      dataUrl = canvas.toDataURL();
+
+    if (hasSignatureRef.current) {
+      if (storedSignature) {
+        dataUrl = storedSignature;
+      } else {
+        try {
+          dataUrl = canvas.toDataURL('image/png');
+        } catch {
+          dataUrl = null;
+        }
+      }
     }
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
 
-    if (ctx) {
-      ctx.scale(dpr, dpr);
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 2.5;
+    ctx.scale(dpr, dpr);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.5;
 
-      if (dataUrl) {
-        const img = new Image();
-        img.onload = () => {
-          ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        };
-        img.src = dataUrl;
-      }
+    if (dataUrl) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+      };
+      img.src = dataUrl;
     }
   };
 
@@ -144,11 +174,20 @@ export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) =>
     if (canvas && canvas.hasPointerCapture(e.pointerId)) {
       canvas.releasePointerCapture(e.pointerId);
     }
+    if (canvas) {
+      const dataUrl = canvas.toDataURL('image/png');
+      setConsentSignature({ signatureData: dataUrl });
+    }
   };
 
   const handlePointerLeave = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isDrawingRef.current && (!canvasRef.current || !canvasRef.current.hasPointerCapture(e.pointerId))) {
       isDrawingRef.current = false;
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const dataUrl = canvas.toDataURL('image/png');
+        setConsentSignature({ signatureData: dataUrl });
+      }
     }
   };
 
@@ -161,6 +200,7 @@ export const ConsentSignature = ({ onValidityChange }: ConsentSignatureProps) =>
     }
     setHasSignature(false);
     hasSignatureRef.current = false;
+    setConsentSignature({ signatureData: '' });
   };
 
   return (

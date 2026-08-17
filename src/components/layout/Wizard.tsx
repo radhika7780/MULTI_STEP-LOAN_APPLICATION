@@ -56,6 +56,8 @@ export const Wizard = () => {
               <Address onValidityChange={setIsCurrentStepValid} />
             ) : currentStep === 6 ? (
               <Documents onValidityChange={setIsCurrentStepValid} />
+            ) : currentStep === 7 ? (
+              <ConsentSignature onValidityChange={setIsCurrentStepValid} />
             ) : (
               CurrentStepComponent && <CurrentStepComponent />
             )}
@@ -63,7 +65,7 @@ export const Wizard = () => {
         </AnimatePresence>
       </div>
       <NavigationButtons
-        canProceed={currentStep >= 1 && currentStep <= 6 ? isCurrentStepValid : true}
+        canProceed={currentStep >= 1 && currentStep <= 7 ? isCurrentStepValid : true}
       />
     </div>
   );
