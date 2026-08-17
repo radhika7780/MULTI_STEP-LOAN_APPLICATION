@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ClipboardCheck,
   Banknote,
@@ -11,10 +12,19 @@ import {
   AlertCircle,
   CheckCircle2,
   Send,
+  Loader2,
 } from 'lucide-react';
 import { useLoanStore } from '../store/loanStore';
 
 export const ReviewSubmit = () => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submissionData, setSubmissionData] = useState<{
+    appId: string;
+    submissionDate: string;
+  } | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const loanDetails = useLoanStore((state) => state.loanDetails);
   const personalDetails = useLoanStore((state) => state.personalDetails);
   const kycDetails = useLoanStore((state) => state.kycDetails);
@@ -108,6 +118,103 @@ export const ReviewSubmit = () => {
 
   const isApplicationComplete = incompleteSections.length === 0;
 
+  const handleSubmit = () => {
+    if (!isApplicationComplete || isSubmitting || isSubmitted) return;
+
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    setTimeout(() => {
+      try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const dateStr = `${year}${month}${day}`;
+
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let randomStr = '';
+        for (let i = 0; i < 6; i++) {
+          randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+
+        const appId = `LOAN-${dateStr}-${randomStr}`;
+        const submissionDate = now.toLocaleString('en-US', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        });
+
+        setSubmissionData({ appId, submissionDate });
+        setIsSubmitting(false);
+        setIsSubmitted(true);
+      } catch {
+        setIsSubmitting(false);
+        setSubmitError('Unable to complete submission. Please try again.');
+      }
+    }, 800);
+  };
+
+  if (isSubmitted && submissionData) {
+    return (
+      <div className="space-y-6 max-w-2xl mx-auto py-4">
+        {/* Success Card */}
+        <div className="bg-white border border-gray-200 rounded-xl p-8 shadow-sm text-center space-y-6">
+          <div className="w-16 h-16 bg-emerald-100 border border-emerald-200 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+            <CheckCircle2 className="w-10 h-10" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gray-900">
+              Application Submitted Successfully
+            </h2>
+            <p className="text-sm text-gray-600">
+              Your loan application has been submitted successfully.
+            </p>
+          </div>
+
+          {/* Submission Details Box */}
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 text-left space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-gray-200 gap-1">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Application Reference Number
+              </span>
+              <span className="font-mono font-bold text-blue-600 text-base">
+                {submissionData.appId}
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-gray-200 gap-1">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Submission Date
+              </span>
+              <span className="font-medium text-gray-900 text-sm">
+                {submissionData.submissionDate}
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Submitted
+              </span>
+            </div>
+          </div>
+
+          {/* Notice Message */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 font-medium">
+            Please keep your application reference number for future correspondence.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -120,6 +227,13 @@ export const ReviewSubmit = () => {
           Please review your application details carefully before submitting.
         </p>
       </div>
+
+      {submitError && (
+        <div role="alert" className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center space-x-3 text-red-700 text-sm">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+          <span>{submitError}</span>
+        </div>
+      )}
 
       {/* Info / Validation Banner */}
       {isApplicationComplete ? (
@@ -618,15 +732,25 @@ export const ReviewSubmit = () => {
           <div className="pt-2">
             <button
               type="button"
-              disabled={!isApplicationComplete}
+              onClick={handleSubmit}
+              disabled={!isApplicationComplete || isSubmitting}
               className={`inline-flex items-center justify-center space-x-2 w-full sm:w-auto px-6 py-3 font-semibold rounded-lg text-sm transition-colors shadow-sm ${
-                isApplicationComplete
+                isApplicationComplete && !isSubmitting
                   ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
                   : 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-60'
               }`}
             >
-              <Send className="w-4 h-4" />
-              <span>Submit Application</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Submitting...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4" />
+                  <span>Submit Application</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -634,4 +758,5 @@ export const ReviewSubmit = () => {
     </div>
   );
 };
+
 
