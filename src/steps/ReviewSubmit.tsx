@@ -9,10 +9,105 @@ import {
   PenTool,
   Edit3,
   AlertCircle,
+  CheckCircle2,
   Send,
 } from 'lucide-react';
+import { useLoanStore } from '../store/loanStore';
 
 export const ReviewSubmit = () => {
+  const loanDetails = useLoanStore((state) => state.loanDetails);
+  const personalDetails = useLoanStore((state) => state.personalDetails);
+  const kycDetails = useLoanStore((state) => state.kycDetails);
+  const employmentDetails = useLoanStore((state) => state.employmentDetails);
+  const addressDetails = useLoanStore((state) => state.addressDetails);
+  const documents = useLoanStore((state) => state.documents);
+  const consentSignature = useLoanStore((state) => state.consentSignature);
+
+  // Validation checks for each section
+  const isLoanDetailsValid =
+    !!loanDetails.loanType &&
+    typeof loanDetails.loanAmount === 'number' &&
+    loanDetails.loanAmount > 0 &&
+    !!loanDetails.loanPurpose &&
+    !!loanDetails.loanTenure;
+
+  const isPersonalDetailsValid =
+    !!personalDetails.firstName &&
+    personalDetails.firstName.trim().length >= 2 &&
+    !!personalDetails.lastName &&
+    personalDetails.lastName.trim().length >= 2 &&
+    !!personalDetails.dateOfBirth &&
+    !!personalDetails.gender &&
+    !!personalDetails.mobileNumber &&
+    /^\d{10}$/.test(personalDetails.mobileNumber) &&
+    !!personalDetails.email &&
+    !!personalDetails.maritalStatus;
+
+  const isKYCValid =
+    !!kycDetails.panNumber &&
+    /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(kycDetails.panNumber) &&
+    !!kycDetails.aadhaarNumber &&
+    /^\d{12}$/.test(kycDetails.aadhaarNumber);
+
+  const isEmploymentValid =
+    (employmentDetails.employmentType === 'Salaried' ||
+      employmentDetails.employmentType === 'Self-Employed') &&
+    !!employmentDetails.employerOrBusinessName &&
+    employmentDetails.employerOrBusinessName.trim().length >= 2 &&
+    typeof employmentDetails.income === 'number' &&
+    employmentDetails.income > 0 &&
+    !!employmentDetails.workExperience &&
+    (employmentDetails.employmentType === 'Salaried'
+      ? !!employmentDetails.jobTitle && employmentDetails.jobTitle.trim().length >= 2
+      : !!employmentDetails.businessType && employmentDetails.businessType.trim().length >= 2);
+
+  const isCurrentAddressValid =
+    !!addressDetails.currentAddressLine1 &&
+    !!addressDetails.currentPinCode &&
+    /^\d{6}$/.test(addressDetails.currentPinCode) &&
+    !!addressDetails.currentState &&
+    !!addressDetails.currentCity;
+
+  const isPermanentAddressValid = addressDetails.sameAsCurrentAddress
+    ? true
+    : !!addressDetails.permanentAddressLine1 &&
+      !!addressDetails.permanentPinCode &&
+      /^\d{6}$/.test(addressDetails.permanentPinCode) &&
+      !!addressDetails.permanentState &&
+      !!addressDetails.permanentCity;
+
+  const isAddressValid = isCurrentAddressValid && isPermanentAddressValid;
+
+  const isDocumentsValid =
+    !!documents.pan &&
+    documents.pan.selected === true &&
+    !!documents.aadhaar &&
+    documents.aadhaar.selected === true &&
+    !!documents.incomeProof &&
+    documents.incomeProof.selected === true &&
+    !!documents.addressProof &&
+    documents.addressProof.selected === true;
+
+  const isConsentValid =
+    consentSignature.applicationDeclaration === true &&
+    consentSignature.termsAccepted === true &&
+    consentSignature.privacyConsent === true &&
+    consentSignature.finalAcknowledgement === true &&
+    !!consentSignature.signatureName &&
+    consentSignature.signatureName.trim().length >= 2 &&
+    !!consentSignature.signatureData;
+
+  const incompleteSections: string[] = [];
+  if (!isLoanDetailsValid) incompleteSections.push('Loan Details');
+  if (!isPersonalDetailsValid) incompleteSections.push('Personal Details');
+  if (!isKYCValid) incompleteSections.push('KYC Details');
+  if (!isEmploymentValid) incompleteSections.push('Employment Details');
+  if (!isAddressValid) incompleteSections.push('Address Details');
+  if (!isDocumentsValid) incompleteSections.push('Documents');
+  if (!isConsentValid) incompleteSections.push('Consent & Signature');
+
+  const isApplicationComplete = incompleteSections.length === 0;
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -26,13 +121,25 @@ export const ReviewSubmit = () => {
         </p>
       </div>
 
-      {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center space-x-3 text-blue-800 text-sm">
-        <AlertCircle className="w-5 h-5 text-blue-600 shrink-0" />
-        <span>
-          Make sure all information is accurate before submitting your application.
-        </span>
-      </div>
+      {/* Info / Validation Banner */}
+      {isApplicationComplete ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center space-x-3 text-emerald-800 text-sm">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span className="font-medium">Application is ready for submission.</span>
+        </div>
+      ) : (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1 text-amber-900 text-sm">
+          <div className="flex items-center space-x-2 font-medium">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <span>Please complete all required information before submitting.</span>
+          </div>
+          {incompleteSections.length > 0 && (
+            <p className="text-xs text-amber-700 pl-7">
+              Please complete: {incompleteSections.join(', ')}.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="space-y-6">
         {/* Section 1: Loan Details */}
@@ -53,19 +160,23 @@ export const ReviewSubmit = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="block text-xs font-medium text-gray-500">Loan Type</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{loanDetails.loanType || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Loan Amount</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">
+                {typeof loanDetails.loanAmount === 'number' && loanDetails.loanAmount > 0
+                  ? `₹${loanDetails.loanAmount.toLocaleString('en-IN')}`
+                  : '—'}
+              </span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Loan Purpose</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{loanDetails.loanPurpose || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Loan Tenure</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{loanDetails.loanTenure || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Estimated EMI</span>
@@ -92,31 +203,31 @@ export const ReviewSubmit = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="block text-xs font-medium text-gray-500">First Name</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{personalDetails.firstName || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Last Name</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{personalDetails.lastName || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Date of Birth</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{personalDetails.dateOfBirth || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Gender</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{personalDetails.gender || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Mobile Number</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{personalDetails.mobileNumber || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Email Address</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{personalDetails.email || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Marital Status</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{personalDetails.maritalStatus || '—'}</span>
             </div>
           </div>
         </div>
@@ -139,22 +250,34 @@ export const ReviewSubmit = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <span className="block text-xs font-medium text-gray-500">PAN Number</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{kycDetails.panNumber || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">PAN Verification Status</span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 mt-0.5">
-                Not Verified
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-0.5 ${
+                  kycDetails.panVerified
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {kycDetails.panVerified ? 'Verified' : 'Not Verified'}
               </span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Aadhaar Number</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{kycDetails.aadhaarNumber || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Aadhaar Verification Status</span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600 mt-0.5">
-                Not Verified
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium mt-0.5 ${
+                  kycDetails.aadhaarVerified
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {kycDetails.aadhaarVerified ? 'Verified' : 'Not Verified'}
               </span>
             </div>
           </div>
@@ -178,27 +301,31 @@ export const ReviewSubmit = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="block text-xs font-medium text-gray-500">Employment Type</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{employmentDetails.employmentType || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Employer / Business Name</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{employmentDetails.employerOrBusinessName || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Job Title / Role</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{employmentDetails.jobTitle || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Business Type</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{employmentDetails.businessType || '—'}</span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Monthly Income</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">
+                {typeof employmentDetails.income === 'number' && employmentDetails.income > 0
+                  ? `₹${employmentDetails.income.toLocaleString('en-IN')}`
+                  : '—'}
+              </span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Work Experience</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">{employmentDetails.workExperience || '—'}</span>
             </div>
           </div>
         </div>
@@ -227,27 +354,27 @@ export const ReviewSubmit = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
                 <div>
                   <span className="block text-xs font-medium text-gray-500">Address Line 1</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">{addressDetails.currentAddressLine1 || '—'}</span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">Address Line 2</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">{addressDetails.currentAddressLine2 || '—'}</span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">City</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">{addressDetails.currentCity || '—'}</span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">State</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">{addressDetails.currentState || '—'}</span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">PIN Code</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">{addressDetails.currentPinCode || '—'}</span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">Post Office</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">{addressDetails.currentPostOffice || '—'}</span>
                 </div>
               </div>
             </div>
@@ -259,33 +386,60 @@ export const ReviewSubmit = () => {
                   Permanent Address
                 </h4>
                 <span className="text-xs text-gray-500">
-                  Same as current address: <span className="font-medium text-gray-700">—</span>
+                  Same as current address:{' '}
+                  <span className="font-medium text-gray-700">
+                    {addressDetails.sameAsCurrentAddress ? 'Yes' : 'No'}
+                  </span>
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100">
                 <div>
                   <span className="block text-xs font-medium text-gray-500">Address Line 1</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">
+                    {addressDetails.sameAsCurrentAddress
+                      ? addressDetails.currentAddressLine1 || '—'
+                      : addressDetails.permanentAddressLine1 || '—'}
+                  </span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">Address Line 2</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">
+                    {addressDetails.sameAsCurrentAddress
+                      ? addressDetails.currentAddressLine2 || '—'
+                      : addressDetails.permanentAddressLine2 || '—'}
+                  </span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">City</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">
+                    {addressDetails.sameAsCurrentAddress
+                      ? addressDetails.currentCity || '—'
+                      : addressDetails.permanentCity || '—'}
+                  </span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">State</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">
+                    {addressDetails.sameAsCurrentAddress
+                      ? addressDetails.currentState || '—'
+                      : addressDetails.permanentState || '—'}
+                  </span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">PIN Code</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">
+                    {addressDetails.sameAsCurrentAddress
+                      ? addressDetails.currentPinCode || '—'
+                      : addressDetails.permanentPinCode || '—'}
+                  </span>
                 </div>
                 <div>
                   <span className="block text-xs font-medium text-gray-500">Post Office</span>
-                  <span className="font-medium text-gray-900">—</span>
+                  <span className="font-medium text-gray-900">
+                    {addressDetails.sameAsCurrentAddress
+                      ? addressDetails.currentPostOffice || '—'
+                      : addressDetails.permanentPostOffice || '—'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -308,28 +462,85 @@ export const ReviewSubmit = () => {
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            {/* PAN Card */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-700">PAN Card</span>
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                Not Uploaded
+              <div>
+                <span className="font-medium text-gray-700 block">PAN Card</span>
+                <span className="text-xs text-gray-500">
+                  {documents.pan && documents.pan.selected ? documents.pan.name : '—'}
+                </span>
+              </div>
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded ${
+                  documents.pan && documents.pan.selected
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {documents.pan && documents.pan.selected ? 'Selected' : 'Not Uploaded'}
               </span>
             </div>
+
+            {/* Aadhaar Card */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-700">Aadhaar Card</span>
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                Not Uploaded
+              <div>
+                <span className="font-medium text-gray-700 block">Aadhaar Card</span>
+                <span className="text-xs text-gray-500">
+                  {documents.aadhaar && documents.aadhaar.selected ? documents.aadhaar.name : '—'}
+                </span>
+              </div>
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded ${
+                  documents.aadhaar && documents.aadhaar.selected
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {documents.aadhaar && documents.aadhaar.selected ? 'Selected' : 'Not Uploaded'}
               </span>
             </div>
+
+            {/* Income Proof */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-700">Income Proof</span>
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                Not Uploaded
+              <div>
+                <span className="font-medium text-gray-700 block">Income Proof</span>
+                <span className="text-xs text-gray-500">
+                  {documents.incomeProof && documents.incomeProof.selected
+                    ? documents.incomeProof.name
+                    : '—'}
+                </span>
+              </div>
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded ${
+                  documents.incomeProof && documents.incomeProof.selected
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {documents.incomeProof && documents.incomeProof.selected ? 'Selected' : 'Not Uploaded'}
               </span>
             </div>
+
+            {/* Address Proof */}
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <span className="font-medium text-gray-700">Address Proof</span>
-              <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-                Not Uploaded
+              <div>
+                <span className="font-medium text-gray-700 block">Address Proof</span>
+                <span className="text-xs text-gray-500">
+                  {documents.addressProof && documents.addressProof.selected
+                    ? documents.addressProof.name
+                    : '—'}
+                </span>
+              </div>
+              <span
+                className={`text-xs font-medium px-2 py-0.5 rounded ${
+                  documents.addressProof && documents.addressProof.selected
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {documents.addressProof && documents.addressProof.selected
+                  ? 'Selected'
+                  : 'Not Uploaded'}
               </span>
             </div>
           </div>
@@ -353,28 +564,44 @@ export const ReviewSubmit = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="block text-xs font-medium text-gray-500">Application Declaration</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">
+                {consentSignature.applicationDeclaration ? 'Accepted' : 'Not Accepted'}
+              </span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Terms & Conditions</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">
+                {consentSignature.termsAccepted ? 'Accepted' : 'Not Accepted'}
+              </span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Privacy Consent</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">
+                {consentSignature.privacyConsent ? 'Accepted' : 'Not Accepted'}
+              </span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Final Acknowledgement</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">
+                {consentSignature.finalAcknowledgement ? 'Accepted' : 'Not Accepted'}
+              </span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Signature Name</span>
-              <span className="font-medium text-gray-900">—</span>
+              <span className="font-medium text-gray-900">
+                {consentSignature.signatureName || '—'}
+              </span>
             </div>
             <div>
               <span className="block text-xs font-medium text-gray-500">Signature Status</span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Signature captured
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  consentSignature.signatureData
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-amber-50 text-amber-700 border border-amber-200'
+                }`}
+              >
+                {consentSignature.signatureData ? 'Signature captured' : 'Signature not provided'}
               </span>
             </div>
           </div>
@@ -391,7 +618,12 @@ export const ReviewSubmit = () => {
           <div className="pt-2">
             <button
               type="button"
-              className="inline-flex items-center justify-center space-x-2 w-full sm:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-sm transition-colors cursor-pointer shadow-sm"
+              disabled={!isApplicationComplete}
+              className={`inline-flex items-center justify-center space-x-2 w-full sm:w-auto px-6 py-3 font-semibold rounded-lg text-sm transition-colors shadow-sm ${
+                isApplicationComplete
+                  ? 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                  : 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-60'
+              }`}
             >
               <Send className="w-4 h-4" />
               <span>Submit Application</span>
